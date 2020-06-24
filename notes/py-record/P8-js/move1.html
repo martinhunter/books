@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<style type="text/css">
+			/* body{height: 2000px;} */
+			#dRange{width: 1000px;height: 1000px;background: #999999;position: relative;left: 100px;}
+			#div1{width: 200px;height: 200px;background: red;position: absolute;}
+			.lightbox{border: 1px dashed #000000;position: absolute;}
+		</style>
+		<script src="move.js" type="text/javascript" charset="utf-8"></script>
+		<script type="text/javascript">
+			window.onload=function (){
+				var oDiv=document.getElementById('div1');
+				var oRange=document.getElementById('dRange');
+				var x=0;
+				var y=0;
+				oDiv.onmousedown=function(ev){
+					var oEvent=ev||event;
+					var pos=getPos(oEvent);
+					// alert(pos.y);
+					x=pos.x-oDiv.offsetLeft;
+					y=pos.y-oDiv.offsetTop;
+					
+					var oBox=document.createElement('div');
+					oBox.className='lightbox';
+					oBox.style.width=oDiv.offsetWidth-2+'px';
+					oBox.style.height=oDiv.offsetHeight-2+'px';
+					oBox.style.left=oDiv.offsetLeft+'px';
+					oBox.style.top=oDiv.offsetTop+'px';
+					oRange.appendChild(oBox);
+					document.onmousemove=function(ev){
+						var oEvent=ev||event;
+
+						var l=getPos(oEvent).x-x;
+						var t=getPos(oEvent).y-y;
+						if(l<0){
+							l=0;
+						}else if(l>oRange.offsetWidth-oDiv.offsetWidth){
+							l=oRange.offsetWidth-oDiv.offsetWidth;
+						}
+						if(t<0){t=0;}
+						
+						oBox.style.left=l+'px';
+						oBox.style.top=t+'px';
+					}
+					document.onmouseup=function(){
+						document.onmousemove=null;
+						document.onmouseup=null;
+						oDiv.style.left=oBox.offsetLeft+'px';
+						oDiv.style.top=oBox.offsetTop+'px';
+						oRange.removeChild(oBox);
+					};
+					return false;
+				}
+			}
+		</script>
+		
+	</head>
+	<body>
+		<div id="dRange">
+			<div id="div1">
+				
+			</div>
+		</div>
+		
+	</body>
+</html>

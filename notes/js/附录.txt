@@ -1,0 +1,21 @@
+2.1 闭包
+
+闭包函数：(function(arg){code})();
+
+2.2 上下文对象
+
+1. call:将obj2设置为func2的上下文对象,将剩余参数arg2,arg3作为func2的参数传入
+func2.call(obj2,arg2,arg3)
+
+2. apply:将obj2设置为func2的上下文对象,一般用在其他函数内部,并将外层函数的所有参数作为一个数组传入.
+function setBody(){
+	func2.apply(obj2,arguments);
+}
+
+2.3 对象
+js中函数为构造函数，
+
+
+符号 ||
+{value1||value2||value3;} 返回第一个为true的value
+{value1&&value2&&value3;} 所有为true并返回最后一个value

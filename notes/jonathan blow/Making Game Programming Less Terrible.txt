@@ -1,0 +1,27 @@
+slide 1:genneral insanity
+      there's all these people out there who are very sure they have very strong
+ideas about how you're supposed to develop software,just about how it's supposed
+to be structured and tested and what programmer is supposed to do,what the programmer's
+schedule is what we look and people are very convinced of the validity of these ideas
+in th correctness.
+
+why languages are not good enough part 1:
+    they all make underlying assumptions about how you should program.
+    they have ideas,features of the language and the style of the language
+is designed to support certain styles of programming that most people have
+bought into(certainly most educational systems teaching programming bought into).
+    And they are designed according to these principles and they are grounded in
+this insanity and they are helping to perpetyate it in some way.
+
+    there's a broad issue.
+    we are not making advances in engine technology the way that we used to.our
+tools are constraining our productivity.
+
+
+    1.compilation speed.
+    2.full compile-time execution:
+    full:many compilers have some limited set of expressions that they'll evaluate
+    at compile time,so there's contexts version C++ and languages like rust or
+    whatever try to expand and formalize in order to give you more versatility to
+    be able to do stuff at compile time.but my approach is do everything at compile
+    time.

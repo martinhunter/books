@@ -1,0 +1,27 @@
+cur-dirname:D:/coding/venv1/test2/win2/*
+cur-basename:*.mp4
+cur-dironly:False
+
+dirs = _iglob(dirname, recursive, True)=_iglob("D:/coding/venv1/test2/win2/*", recursive, True)
+for dirname in dirs:
+	# 调用dirs,
+		cur-dirname:D:/coding/venv1/test2/win2
+		cur-basename:*
+		cur-dironly:true
+		dirs = ["D:/coding/venv1/test2/wins"]
+		for dirname in dirs:
+			glob_in_dir = _glob1
+			for name in glob_in_dir("D:/coding/venv1/test2/win2", "*", true):
+				name:path2
+				yield os.path.join(dirname, name)	
+	# 返回D:/coding/venv1/test2/win2\path2
+	
+	dirname=D:/coding/venv1/test2/win2\path2
+	glob_in_dir = _glob1
+	for name in glob_in_dir("D:/coding/venv1/test2/win2\path2", "*.mp4", false):
+		name:HND-656-C.mp4
+		yield os.path.join(dirname, name)
+		##yield当前所有name返回给父级
+		##返回D:/coding/venv1/test2/win2\path2\HND-656-C.mp4给ite
+		yield直到for name循环结束
+		转到for dirname in dirs，调用dir的下一个，即path2的下一个

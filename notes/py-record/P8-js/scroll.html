@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>scrollbar</title>
+		<style type="text/css">
+			* {margin: 0; padding: 0;}
+			#scroll {
+				background-color: red;
+				width: 600px; height: 100px;
+				margin: 10px auto;
+				position: relative;
+				overflow: visible;
+			}
+			#scroll ul {
+				position: absolute;
+				left: 0;
+				top: 0;
+			}
+			
+			#scroll ul li{
+				float: left; width: 178px; height: 108px; list-style: none;
+				padding: 0 6px; background-color: cyan; border: 1px solid #000000;
+			}
+			#a2, #a3{
+				width: 100px;
+				height: 100px;
+				background-color: red;
+			}
+		</style>
+		<script type="text/javascript">
+			window.onload=function(){
+				var oDiv=document.getElementById('scroll');
+				var aUl=oDiv.getElementsByTagName('ul')[0];
+				var aLi=aUl.getElementsByTagName('li');
+				aUl.innerHTML=aUl.innerHTML+aUl.innerHTML;
+				var timer=null;
+				aUl.style.width=aLi[0].offsetWidth*aLi.length+'px';
+				var oDiv1=document.getElementById('a2');
+				var oDiv2=document.getElementById('a3');
+				oDiv1.innerHTML=aUl.style.width;
+				timer=setInterval(function(){
+					if(aUl.offsetLeft< -aUl.offsetWidth/2){
+						aUl.style.left=0;
+						
+					}
+					
+					oDiv2.innerHTML=""+aUl.offsetLeft;					
+					aUl.style.left=aUl.offsetLeft-4+'px';
+				}, 30)
+				
+			}
+		</script>
+	</head>
+	<body>
+		<div id="scroll">
+			<ul>
+				<li></li>
+				<li></li>
+				<li></li>
+				<li></li>
+			</ul>
+		</div>
+		<div id="a2"></div>
+		<div id="a3"></div>
+	</body>
+</html>

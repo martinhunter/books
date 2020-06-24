@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>s</title>
+		<style type="text/css">
+/* 			.clearfix:before, .clearfix:after{content:"";display: table;}
+			
+			.clearfix:after{clear:both;}
+			
+			.clearfix{zoom: 1;} */
+			*{margin: 0;padding: 0;}
+			#div_start{width: 270px;height: 129px;background: #00FFFF;margin: 20px auto;position: relative;}
+			#div_btn{width: 118px;height: 118px;background: lightyellow;position: absolute;left:76px;top: 10px;text-align: center;}
+			#div_btn span{line-height: 100px; background: gold;}
+			#div_stage{width: 1015px;height: 342px;border: 3px dashed #8A2BE2;margin: 10px auto;position: relative;}
+			#main{width: 570px;height: 240px;position: absolute;left: 200px;top: 50px;background: #999999;}
+			#main div{width: 30px;height: 30px; position: absolute;}
+			#main .l{-webkit-transform: rotate(0deg);}
+			#main .t{-webkit-transform: rotate(90deg);}
+			#main .b{-webkit-transform: rotate(270deg);}
+			#main .r{-webkit-transform: rotate(180deg);}
+		</style>
+		<script type="text/javascript">
+			window.onload=function(){
+				var Col=18;
+				var Row=7;
+				var oDiv=document.getElementById('main');
+				var oBtn=document.getElementById('div_btn');
+				oBtn.timer=null;
+				var dire='l';
+				
+				//create snake
+				var snake=[];
+				function setPos(obj){
+					obj.od.style.left=obj.c*30+'px';
+					obj.od.style.top=obj.r*30+'px';
+					if(obj.type=='snake'){
+						obj.od.className=obj.dir;
+					}
+				}
+				for(var i=0;i<4;i++){
+					var oNewDiv=document.createElement('div');
+					oNewDiv.style.background='url('+i+'.jpg)';
+					oDiv.appendChild(oNewDiv);
+					snake[i]={c:i+5,r:2,od:oNewDiv,dir:'l',type:'snake'};
+					setPos(snake[i]);
+				}
+				var initPos=0;
+
+				//create food
+				var food=[];
+				function createFood(){
+					while(food.length<4){
+						var fooC=parseInt(Math.random()*Col);
+						var fooR=parseInt(Math.random()*Row);
+						var collide=false;
+						for(var i=0;i<snake.length;i++){
+							if(Math.abs(snake[i].r-fooR)<2 && Math.abs(snake[i].c-fooC)<2){
+								collide=true;
+							}
+						}
+						for(var i=0;i<food.length;i++){
+							if(Math.abs(food[i].r-fooR)<2 && Math.abs(food[i].c-fooC)<2){
+								collide=true;
+							}
+						}
+						if(!collide){
+							var oFood=document.createElement('div');
+							oFood.style.background='url(wordImage.jpg) -'+30*food.length+'px -'+30*initPos+'px';
+							oDiv.appendChild(oFood);
+							food.push({c:fooC,r:fooR,od:oFood,type:'food'});
+						}
+					}
+					for(var i=0;i<food.length;i++){
+						setPos(food[i]);
+					}
+					initPos++;
+					if(initPos==12){
+						initPos=0;
+					}
+				}
+				// createFood();
+				
+				oBtn.onclick=function(){
+					if(oBtn.timer!=null){
+						return;
+					}
+					oBtn.timer=setInterval(function(){
+						//break cond1
+						if(snake[0].c<0||snake[0].r<0||snake[0].c>18||snake[0].r>7){
+							clearInterval(oBtn.timer);
+							oBtn.timer=null;
+							return;
+							// alert('out of range');
+						}
+						//break cond2
+						for (var i=1;i<snake.length;i++){
+							if(snake[0].c==snake[i].c&&snake[0].r==snake[i].r){
+								clearInterval(oBtn.timer);
+								oBtn.timer=null;
+								return;
+							}
+						}
+						//break cond3
+						for (var i=1;i<food.length;i++){
+							if(snake[0].c==food[i].c&&snake[0].r==food[i].r){
+								clearInterval(oBtn.timer);
+								oBtn.timer=null;
+								return;
+							}
+						}
+						
+						
+						if(food.length==0){
+							createFood();
+						}
+						if(snake[0].c==food[0].c&&snake[0].r==food[0].r){
+							// snake.splice(snake.length-2,0,food[0]);
+							snake.push(food[0]);
+							food.shift();
+						}
+						for(i=snake.length-1;i>0;i--){
+							snake[i].c=snake[i-1].c;
+							snake[i].r=snake[i-1].r;
+							snake[i].dir=snake[i-1].dir;
+						}
+						switch(dire){
+							case'l':
+								snake[0].c--;
+								break;
+							case'r':
+								snake[0].c++;
+								break;
+							case't':
+								snake[0].r--;
+								break;
+							case'b':
+								snake[0].r++;
+								break;
+						}
+						
+						//refresh snake position
+						for(var i=0;i<snake.length;i++){
+							setPos(snake[i]);
+						}
+						
+						//keyborad control
+						document.onkeydown=function(ev){
+							// alert('b1');
+							var oEvent=ev||event;
+							switch(oEvent.keyCode){
+								case 37:
+									if(dire!='r'){
+										dire='l';
+										snake[0].dir='l';
+									}
+									break;
+								case 38:
+									if(dire!='b'){
+										dire='t';
+										snake[0].dir='t';
+									}
+									break;
+								case 39:
+									if(dire!='l'){
+										dire='r';
+										snake[0].dir='r';
+									}
+									break;
+								case 40:
+									if(dire!='t'){
+										dire='b';
+										snake[0].dir='b';
+									}
+									break;
+							}
+						}
+						
+						
+						
+						
+						//refresh food
+						
+					},250)
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div id="div_start">
+			<div id="div_btn"><span>coa</span></div>
+		</div>
+		<div id="div_stage">
+			<div id="main"></div>
+		</div>
+	</body>
+</html>

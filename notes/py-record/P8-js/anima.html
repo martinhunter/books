@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>an1</title>
+		<style type="text/css">
+			#anib{width: 200px;height: 200px;background: #00FFFF;position: absolute;top: 100px;left: 0px;display: block;opacity: 0.2;}
+			#an2{width: 150px; height: 200px;background: #333333;position: absolute;top: 300px; left: -150px;}
+			#div2 span{position: absolute;width: 20px;height: 60px;line-height: 20px;background: blueviolet;right: -20px;top: 70px;}
+		</style>
+		<script type="text/javascript">
+			window.onload=function(){
+							// alert(12321);
+							oDiv=document.getElementById('anib');
+							oDiv.timer1=null;
+							oDiv2=document.getElementById('an2');
+							// oDiv2.timer1=null;
+			
+							oDiv.onclick=function (){
+								pAnima(this,{opacity:100});
+							}
+							
+						}
+			function getStyle(obj, attribute){
+				if(obj.currentStyle){
+					return obj.currentStyle[attribute];
+				}
+				else{
+					return getComputedStyle(obj,null)[attribute];
+				}
+			}
+			function pAnima(obj,json,func){
+				clearInterval(obj.timer1);
+				obj.timer1=setInterval(function(){
+					var bStop=true;
+					for (var attribute in json){
+						if(attribute=='opacity'){
+							var attri_value=Math.round(parseFloat(getStyle(obj,attribute))*100);
+						}
+						else{
+							var attri_value=parseInt(getStyle(obj,attribute));
+						}
+						var speed=(json[attribute]-attri_value)/10;
+						speed=speed>0?Math.ceil(speed):Math.floor(speed);
+						if(attri_value!=json[attribute]){
+							bStop=false;
+						}
+						if(attribute=='opacity'){
+							obj.style.filter='alpha(opacity:'+(attri_value+speed)+')';
+							obj.style.opacity=(attri_value+speed)/100;
+						}
+						else{
+							obj.style[attribute]=attri_value+speed+'px';
+						}
+					}
+					if(bStop){
+						clearInterval(obj.timer1);
+						if(func){func()}
+					}
+				},50);
+			}
+			
+			
+		</script>
+	</head>
+	
+	<body>
+		<input type="button" id="btn1" value="start move" onclick="sM()"/>
+		<div id="anib">ork</div>
+		<div id="an2"><span>分享</span></div>
+	</body>
+</html>

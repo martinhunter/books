@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>blocks</title>
+		<style type="text/css">
+			.pagenation{
+				list-style: none;
+				width: 600px;
+				height: 40px;
+				margin: 50px auto 0px;
+				padding: 0;
+				background-color: aqua;
+				border: 1px solid #666;
+				text-align: center;
+				font-size: 0;
+			}
+			.pagenation li{
+				display: inline-block;
+				height: 26px;
+				font-size: 12px;
+				line-height: 26px;
+				margin: 7px 5px;
+				
+				
+			}
+			.pagenation li a{
+				background-color: gold;
+				display: block;
+				/*height: 26px;*/
+				padding: 0 10px;
+				text-decoration: none;
+				font: normal 12px/26px "microsoft sans serif"
+			}
+			.pagenation li a:hover{
+				background-color: red;
+			}
+			
+			.menu{
+				list-style: none;
+				width: 958px;
+				height: 40px;
+				margin: 50px auto 0px;
+				padding: 0;
+				background-color: aqua;
+				border: 1px solid #666;
+				text-align: center;
+				font-size: 0;
+			}
+			
+			.menu li{
+				display: inline-block;
+				font-size: 14px;
+				height: 40px;
+				background-color: red;
+			}
+			
+			.menu li a{
+				padding: 0px 10px;
+				
+				background-color: gold;
+				display: block;
+				font: normal 15px/40px "ms sans serif";
+				text-decoration: none;
+			}
+			
+			.menu li span{
+				
+				background-color: red;
+				display: block;
+				margin: 0 20px;
+				font: normal 15px/40px "ms sans serif";
+				text-decoration: none;
+			}
+		</style>
+	</head>
+	<body>
+		<ul class="pagenation">
+			<li><a href="#">page 1</a></li>
+			<li><a href="#">2</a></li>
+			<li><a href="#">3</a></li>
+			<li><a href="#">4</a></li>
+			<li><a href="#">5</a></li>
+			<li><span>...</span></li>
+			<li><a href="#">7</a></li>
+			<li><a href="#">8</a></li>
+			<li><a href="#">9</a></li>
+			<li><a href="#">10</a></li>
+			<li><a href="#">page next-10</a></li>
+		</ul>
+		
+		<ul class="menu">
+			<li><a href="#">sitesee</a></li>
+			<li><span>|</span></li>
+			<li><a href="#">sitesee</a></li>
+			<li><span>|</span></li>
+			<li><a href="#">sitesee</a></li>
+			<li><span>|</span></li>
+			<li><a href="#">sitesee</a></li>
+		</ul>
+	</body>
+</html>

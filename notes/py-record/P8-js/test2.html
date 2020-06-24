@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<style type="text/css">
+			div{width: 100px;height: 100px;background: cyan;position: absolute;}
+			#d1{left: 10px;top: 50px;}
+			#d2{left: 200px;top: 200px;}
+			.r{-webkit-transform: rotate(180deg);}
+		</style>
+		<script type="text/javascript" src="move.js"></script>
+		<script type="text/javascript">
+			window.onload=function(){
+				var oD1=document.getElementById('d1');
+				var oD2=document.getElementById('d2');
+				var oBt1=document.getElementById('bt1');
+				oD1.onclick=function(){
+					var time = 1000;
+					var ht = 300;
+					var speed = ht/time*1000;
+					startMove(this,{height:300})
+					this.timer1 = set
+				}
+				oBt1.onclick=function(){
+					oD2.className='r';
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div id="d1"></div>
+		<div id="d2">miancont</div>
+		<button type="button" id="bt1">sidebar</button>
+	</body>
+</html>
