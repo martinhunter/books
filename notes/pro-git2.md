@@ -970,12 +970,119 @@ The Nuclear Option: filter-branch
 not recommended,use [git-filter-repo](https://github.com/newren/git-filter-repo) instead
 
 
+MARK Pg.251
+
+Tree | Role
+- | - |
+HEAD | Last commit snapshot, next parent
+Index | Proposed next commit snapshot
+Working | Directory Sandbox
+
+$ git cat-file -p HEAD  # see what that snapshot looks like
+$ git ls-tree -r HEAD
+
+Index is your proposed next commit(staging area).
+$ git ls-files -s  # -s for status
+
+### The Role of Reset
+
+$ git reset <hash>  # git reset HEAD~~~ works as well
+
+Reset process:
+
+1. Move HEAD (--soft),HEAD still points to master,but `reset` makes master points to the commit. changes still staged
+2. Updating the Index (--mixed,default option for reset HEAD).update the index with the contents of whatever snapshot HEAD now points to. changes unstaged.
+3. Updating the Working Directory (--hard).totally discards all changes as if it never happened
+
+$ git reset file/path  # opposite of git add
+
+squash commits
+$ git reset --soft <hash>
+$ git commit -m "squashed"
+
+reset Vs checkout
+
+$ git reset <hash> <file>  # 不移动HEAD，不能加--soft,--mixed,--hard，恢复到未commit前的状态. WD safe
+
+$ git checkout <hash>  # !!! 回到特定历史事件查看当时的文件(会进入detached-HEAD状态)
+
+
+$ git checkout <hash> <file>  # 不移动HEAD，恢复到文件未修改，未stage的状态，可通过git restore恢复修改.reset --hard则完全不可恢复，not WD safe
 
 
 
+without path
+- checkout is safe 
+- reset --hard moves branch that HEAD points to while checkout just moves HEAD to another branch.WD Safe 
+
+### advanced merging
+
+提交时转换为LF，检出时转换为
+$ git config --global core.autocrlf true
+
+$ git merge anotherBranch # 尝试merge,分支内whitespace有修改
+... 冲突警告，分支显示为(master|merging) ...
+$ git merge --abort  # 跳出merge，分支显示为(master)
+
+$ git -Xignore-all-space  # ignores whitespace completely when comparing lines
+$ git -Xignore-space-change  # treats sequences of one or more whitespace characters as equivalent.
+
+manual re-merging
+
+$ git merge another  # to enter merge conflict state first
+
+- stage 1 is the common ancestor
+- stage 2 is your version(current branch)
+- stage 3 is from the MERGE_HEAD, the version you’re merging in
+- .common,.ours,.theirs是固定的，不可更改
+
+$ git show :1:hello.py > hello.common.py  # use `>` to make copies
+$ git show :2:hello.py > hello.ours.py  # `:2:hello.py` is shorthand for looking up its SHA
+$ git show :3:hello.py > hello.theirs.py
+
+$ git ls-files -u  # list hashes of unmerged files
+
+...modify hello.theirs.py manually...
+$ git merge-file -p \
 
 
-MARK Pg.253
+$ git diff --ours  # in conflict state,compare your result to what you had in your branch before the merge, in other words, to see what the merge introduced.Don't have to open the file with your editor
+$ git diff --theirs
+$ git diff --base -b  # see changes from both sides
+
+$ git clean -f  # clear temp files
+Removing hello.common.rb
+Removing hello.ours.rb
+Removing hello.theirs.rb
+
+$ git log --graph --oneline --decorate --all  # show all commits(including all branches and stashes)
+
+use checkout without merging
+
+$ git checkout --conflict=diff3 hello.py  # shows diff, --conflict=merge is default
+
+$ git config --global merge.conflictstyle diff3
+
+$ git log --oneline --left-right HEAD...MERGE_HEAD  # show unique commits of each branch
+
+$ git log --oneline --left-right --merge  # show conflict commits
+
+$ git diff  # see what you still have to resolve
+
+$ git log --cc -p -1  # see how something was resolved after the fact.
+
+Undoing Merges
+
+$ git reset --hard HEAD~
+
+$ git revert -m 1 HEAD  # -m 1 flag indicates which parent is the “mainline” and should be kept.like `reset ^HEAD` but doesn't delete merge joint.It actually creates a new commit that is copy of master before merge(^HEAD here) and discards all changes from another branch.
+
+now nothing in topic is reachable from master. if you make changes in topic and try to merge in, git will only merge these changes since revert. Use the commands below to bring back all changes from topic 
+
+$ git revert ^M  # un-revert the original merge
+
+Pg.287
+
 
 
 
