@@ -1,0 +1,48 @@
+import mysql
+import re
+
+def openfile(openf):
+    with open("./templete/" + openf) as f:
+        content = f.read()
+    return content
+
+# create a decorator
+'''
+each file_name matches a function,{'file_name':function}.
+use dict to save the info
+'''
+decodic = {}
+def route(filepath):
+    def deco1(func):
+        decodic[filepath] = func
+        def deco2(*args, **kwargs):
+            return func(*args, **kwargs)
+        return deco2
+    return deco1
+
+@route("/index.py")
+def index(ret):
+    return openfile("index.html")
+
+@route("/login.py")
+def login(ret):
+    return openfile("login.html")
+
+# route: alldata = route(r"/add/\d+\.html")() = deoc1(alldata) = deco2
+# and decodic[r"/add/\d+\.html"] = alldata
+@route(r"/add/\d+\.html")
+def alldata(ret):
+    name = ret.group(1)
+    con = mysql.connect()
+    
+
+def application(environ, start_response):
+    start_response('200 OK', [('Content-Type', 'text/html')])
+    file_name = environ['PATH_INFO']
+    try:
+        for nf, cont in dicodic.items():
+            ret = re.match(nf, file_name)
+            if ret:
+                return cont(ret)
+    except Exception as ret:
+        return "error occured:%s" % str(ret)

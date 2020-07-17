@@ -36,11 +36,11 @@ $ git config --global core.editor "'C:/Program Files/Notepad++/notepad++.exe'
 
 open maunal in the browser:
 
-$ git <verb> help || --help  # exp: git help config
+$ git &lt;verb> help || --help  # exp: git help config
 
 show quick refresher on the available options in dos/bash:
 
-$ git <verb> -h  # git config -h
+$ git &lt;verb> -h  # git config -h
 
 ### structure
 
@@ -60,7 +60,7 @@ tracked/staged(after $git add，置入暂存区，staging area)
 
 $ git init  # init current directory
 
-$ git init [<directory>]
+$ git init [&lt;directory>]
 
 
 exp: a basic commit
@@ -69,7 +69,7 @@ $ git add *.c
 $ git add LICENSE
 $ git commit -m 'Initial project version'
 
-$ git clone <url> [$Alias]
+$ git clone &lt;url> [$Alias]
 \# URL use https:// protocol, you may also see git:// or user@server:path/to/repo.git, 
 
 Checking the Status of Your Files
@@ -79,7 +79,7 @@ $ git status
 
 Tracking New Files or staging modified files
 
-$ git add <file> [<file>]*
+$ git add &lt;file> [&lt;file>]*
 
 exp: .ignore file
 
@@ -111,7 +111,7 @@ Removing Files
 remove it from your tracked files (more accurately, remove it from your staging area) and then commit
 file will not be tracked
 
-$ git rm <file>  # 执行了删除文件，并将删除文件这个修改提交到staging area，且提交后日后不再track此文件（已被删除）
+$ git rm &lt;file>  # 执行了删除文件，并将删除文件这个修改提交到staging area，且提交后日后不再track此文件（已被删除）
 -f  # remove file that's already added to staging area and delete this file,并将删除文件这个修改提交到staging area。 慎用
 --cached  #  实际不删除此文件，但会将删除文件这个修改提交到staging area
 
@@ -147,33 +147,33 @@ $ git commit --amend
 Unstaging a Staged File
 
 旧版
-$ git reset HEAD <file>
-$ git checkout -- <file>
+$ git reset HEAD &lt;file>
+$ git checkout -- &lt;file>
 
 新版
-$ git restore --staged <file>  # 取消提交
-$ git restore <file>  # 取消文件修改
+$ git restore --staged &lt;file>  # 取消提交
+$ git restore &lt;file>  # 取消文件修改
 
 ### Working with Remotes
 
-NOTE:<remote>为远程仓库在本地的别名
+NOTE:&lt;remote>为远程仓库在本地的别名
 
-$ git clone <url>  # automatically sets up your local master branch to track the remote master branch (or whatever the default branch is called)
+$ git clone &lt;url>  # automatically sets up your local master branch to track the remote master branch (or whatever the default branch is called)
 
-$ git remote add [<options>] <remote> <url>  # 先添加仓库，remote为url的本地别名
+$ git remote add [&lt;options>] &lt;remote> &lt;url>  # 先添加仓库，remote为url的本地别名
 
 $ git remote  # 查看已添加仓库的别名
 -v  # 查看具体信息
 
-$ git fetch <remote>  # update local repo, but it only downloads the data to your local repository — it doesn’t automatically merge it with any of your work or modify what you’re currently working on. You have to merge it manually into your work when you’re ready.
+$ git fetch &lt;remote>  # update local repo, but it only downloads the data to your local repository — it doesn’t automatically merge it with any of your work or modify what you’re currently working on. You have to merge it manually into your work when you’re ready.
 
-$ git pull <remote> <remote-branch> # git pull is shorthand for `git fetch` followed by `git merge FETCH_HEAD`.automatically fetch and then merge that remote branch into your current branch
+$ git pull &lt;remote> &lt;remote-branch> # git pull is shorthand for `git fetch` followed by `git merge FETCH_HEAD`.automatically fetch and then merge that remote branch into your current branch
 
-$ git push <remote> <branch>
+$ git push &lt;remote> &lt;branch>
 
 Inspecting a Remote
 
-$ git remote show <remote>
+$ git remote show &lt;remote>
 
 $ git remote rename prev_name new_name
 
@@ -183,42 +183,42 @@ $ git tag  # 显示所有tag
 
 为当前提交状态增加tag
 
-$ git tag -a <tagName> -m "my version 1.4"
+$ git tag -a &lt;tagName> -m "my version 1.4"
 -a 为tag名称
 -m 为tag保存的信息
 
 $ git show  # 显示最近一次提交
-$ git show <tagName>  # 显示指定tag的信息
+$ git show &lt;tagName>  # 显示指定tag的信息
 
 Lightweight Tags
 
-$ git tag <tagName>  # 不加-a，-m，-s，不添加额外的tag信息，一般临时使用
+$ git tag &lt;tagName>  # 不加-a，-m，-s，不添加额外的tag信息，一般临时使用
 
 Tag later
 
-$ git tag -a <tagName> <hashcode>  # hashcode如9fceb02
-$ git tag -d <tagName>  # 删除tag
+$ git tag -a &lt;tagName> &lt;hashcode>  # hashcode如9fceb02
+$ git tag -d &lt;tagName>  # 删除tag
 
 Sharing Tags,explicitly push tags to a shared server
 
-$ git push <remote> <tagname>
-$ git push <remote> --tags  # 一次推送所有tag
+$ git push &lt;remote> &lt;tagname>
+$ git push &lt;remote> --tags  # 一次推送所有tag
 
 远程删除tag的2种方法
 
-$ git push <remote> :refs/tags/<tagname>:  # `:refs/tags/<tagname>:` 是固定搭配
-$ git push origin --delete <tagname>
+$ git push &lt;remote> :refs/tags/&lt;tagname>:  # `:refs/tags/&lt;tagname>:` 是固定搭配
+$ git push origin --delete &lt;tagname>
 
 Checking out Tags： view the versions of files a tag is pointing to
 
-$ git checkout <tagname>
+$ git checkout &lt;tagname>
 
 > 会进入detached HEAD 状态，if you make changes and then create a commit, the tag will stay the same,
 but your new commit won’t belong to any branch and will be unreachable, except by the exact
 commit hash. Thus, if you need to make changes — say you’re fixing a bug on an older version, for
 instance — you will generally want to create a branch:
 
-$ git checkout -b <branch> <tagname>  # -b创建新分支，并使用checkout转到此分支
+$ git checkout -b &lt;branch> &lt;tagname>  # -b创建新分支，并使用checkout转到此分支
 
 
 Git Aliases(Pg.60/66)
@@ -232,11 +232,11 @@ $ git config --global alias.last 'log -1 HEAD'
 
 ### Git Branching
 
-$ git branch <branch>  # create new branch
+$ git branch &lt;branch>  # create new branch
 
-$ git checkout <branch>  # Switching Branches
+$ git checkout &lt;branch>  # Switching Branches
 
-$ git checkout -b <new-branch>  # create new branch and switch to it
+$ git checkout -b &lt;new-branch>  # create new branch and switch to it
 
 > a branch in Git is actually a simple file that contains the 40 character SHA-1 checksum of
 the commit it points to, branches are cheap to create and destroy. Creating a new branch is as quick
@@ -245,9 +245,9 @@ and simple as writing 41 bytes to a file (40 characters and a newline).
 
 Basic Branching and Merging
 
-$ git merge <branch>  # Git simply moves the pointer forward to the branch(when master is not modified)
-$ git branch -d <branch>  # after merge, delete the temporaty branch
-$ git branch -D <branch>  # force delete
+$ git merge &lt;branch>  # Git simply moves the pointer forward to the branch(when master is not modified)
+$ git branch -d &lt;branch>  # after merge, delete the temporaty branch
+$ git branch -D &lt;branch>  # force delete
 
 Basic Merging
 
@@ -276,9 +276,9 @@ In reality, we’re talking about pointers moving up the line of commits you’r
 
 Remote Branches
 
-git ls-remote <remote> || git remote show <remote>  # get a full list of remote references
+git ls-remote &lt;remote> || git remote show &lt;remote>  # get a full list of remote references
 
-远程跟踪分支：形式为<remote>/<branch>,例如远程仓库名为rem，使用git checkout rem/master来跳转至远程仓库的分支。
+远程跟踪分支：形式为&lt;remote>/&lt;branch>,例如远程仓库名为rem，使用git checkout rem/master来跳转至远程仓库的分支。
 
 
 exp: remote branch process
@@ -469,7 +469,7 @@ $ git checkout master
 $ git merge exp-branch  # master moves forward to the end C5' and now points to the same node as exp-branch.
 
 
-$ git rebase <basebranch> <topicbranch>  # rebase the server branch onto the master branch.It's short-hand for $ git checkout <topicbranch>; $ git rebase <basebranch>
+$ git rebase &lt;basebranch> &lt;topicbranch>  # rebase the server branch onto the master branch.It's short-hand for $ git checkout &lt;topicbranch>; $ git rebase &lt;basebranch>
 
 The Perils of Rebasing:`Do not rebase commits that exist outside your repository and that people may have based
 work on.`
@@ -518,7 +518,7 @@ $ git clone --bare my_project my_project.git  # 先回到git上一级目录，my
 
 Putting the Bare Repository on a Server
 
-$ scp -r <git> <userName>@<site>:<remote-directory>
+$ scp -r &lt;git> &lt;userName>@&lt;site>:&lt;remote-directory>
 
 now you’ve set up a server called git.example.com
 
@@ -569,7 +569,7 @@ $ cat /etc/shells # see if git-shell is already in there. If not...
 $ which git-shell # make sure git-shell is installed on your system.
 $ sudo -e /etc/shells # and add the path to git-shell from last command
 
-$ sudo chsh git -s $(which git-shell)  # chsh <username> -s <shell>
+$ sudo chsh git -s $(which git-shell)  # chsh &lt;username> -s &lt;shell>
 
 Restrict users from being able to use SSH port forwarding to access any host the git server is able to reach
 
@@ -645,12 +645,12 @@ push origin master
 
 Pull request:Once your work has been pushed to your fork of the repository, you need to `notify the maintainers` of the original project that you have work you’d like them to merge
 
-$ git request-pull <start> <url> <end>
+$ git request-pull &lt;start> &lt;url> &lt;end>
 - start is branch/tag of origin
 - url is the url of forked project
 - end is the local:forked branch
 
-$ git clone <url>
+$ git clone &lt;url>
 $ cd project
 $ git checkout -b featureA
 ... work ...
@@ -660,13 +660,13 @@ $ git commit
 
 ... fork the original project to myfork ...
 
-$ git remote add myfork <url>
+$ git remote add myfork &lt;url>
 
 $ git push -u myfork featureA  # send local changes(featureA) to the fork
 
 $ git request-pull origin/master myfork  # send request to 
 
-push to the fork with a different name `<local-branch>:<forked-branch>`
+push to the fork with a different name `&lt;local-branch>:&lt;forked-branch>`
 
 $ git push myfork master:for-linus
 
@@ -741,7 +741,7 @@ A...B : diverge node of A and B is C,and show commits of C to B(C not included).
 
 
   $ git merge-base contrib master  # 先获得2个分支的分叉点的hash
-  $ git diff <hash>  # 再比较当前分支与分叉节点。	
+  $ git diff &lt;hash>  # 再比较当前分支与分叉节点。	
 
   $ git diff master...contrib  # shorthand for the command above
 
@@ -750,7 +750,7 @@ Rebasing and Cherry-Picking Workflows Insteadof Merge
 cherrypick is like a rebase for a single commit,useful if you have a number of
 commits on a topic branch and you want to integrate only one of them
 
-$ git cherry-pick <hash>  # pull commit e43a6 into your current branch
+$ git cherry-pick &lt;hash>  # pull commit e43a6 into your current branch
 
 Rerere(reuse recorded resolution)
 
@@ -818,7 +818,7 @@ $ git push
 Pull Request Refs
 
 show us what
-$ git ls-remote <remote>  # references are present on the server
+$ git ls-remote &lt;remote>  # references are present on the server
 
 >>>
 bddf460a677091bb39a9b7568538b515661e23a0        HEAD
@@ -909,7 +909,7 @@ $ git stash --include-untracked or -u  # include untracked files in the stash be
 
 $ git stash --patch  # prompt you interactively which of the changes you would like to stash and which you would like to keep in your working directory.
 
-$ git stash branch <new branchname>  # creates a new branch for you with your selected branch name, checks out the commit you were on when you stashed your work, reapplies your work there, and then drops the stash if it applies successfully
+$ git stash branch &lt;new branchname>  # creates a new branch for you with your selected branch name, checks out the commit you were on when you stashed your work, reapplies your work there, and then drops the stash if it applies successfully
 
 $ git clean -n -d  # use -n instead of -f to see what will be removed all the untracked files in your working directory first
 $ git clean -f -d  # removes any files and also any subdirectories that become empty as a result
@@ -922,7 +922,7 @@ $ gpg --list-keys
 $ git config --global user.signingkey 5CECE40B479E0F8625C35A2ED02FF22E3657BF8D  # 5CECE40B479E0F8625C35A2ED02FF22E3657BF8D is hash of public key
 
 $ git tag -s v1.5 -m 'my signed 1.5 tag'  # will require passphrase
-$ git tag -v <tag-name>  # verify a signed tags
+$ git tag -v &lt;tag-name>  # verify a signed tags
 
 $ git commit -a -S -m 'Signed commit'  # sign commits
 $ git log --show-signature -1  # verify signed commit
@@ -933,7 +933,7 @@ $ git merge --verify-signatures -S signed-branch  # use -S to sign merged branch
 
 ### Searching
 
-$ git grep <keyword> <regex-file> # shows files containing keyword,file is like `*.c` to filter specified fileType
+$ git grep &lt;keyword> &lt;regex-file> # shows files containing keyword,file is like `*.c` to filter specified fileType
 -n or --line-number 
 -c or --count  # counts
 -p or --show-function  # display the enclosing method or function for each matching string
@@ -944,8 +944,8 @@ Git Log Searching
 
 $ git log -S ZLIB_BUF_MAX --oneline
 -G  # regex search
-$ git log -L :<keyword>:<file>  # list every change of keyword till creation of file
-$ git log -L '/unsigned long git_deflate_bound/',/^}/:<file>  # regex search
+$ git log -L :&lt;keyword>:&lt;file>  # list every change of keyword till creation of file
+$ git log -L '/unsigned long git_deflate_bound/',/^}/:&lt;file>  # regex search
 
 Modify History
 
