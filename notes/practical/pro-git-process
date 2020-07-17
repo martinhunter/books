@@ -49,18 +49,79 @@ $ git diff
 
 [remote basic workflow]
 
-branch 1: `origin` is default name for remote url
+branch 1: `origin` is default name for remote url,remname it to bks
 $ git clone https://github.com/martinhunter/books.git
-branch 2: you can change remote url(origin) to a new name,like bks
+$ git remote rename origin bks
+branch 2
+$ git clone https://github.com/martinhunter/books.git/ -o bks
+branch 3
 $ git remote add bks https://github.com/martinhunter/books.git
+$ git clone bks
 
 $ git remote -v
+$ git remote show bks
 $ git fetch bks
 ...remote adds/modifies fix3-branch...
 NOTE: pull will fetch and merge fix3-branch to current branch. creating a new branch to merge is recommended
 $ git checkout -b temp
 $ git pull bks fix3-branch
+...solve merge(intro is later)...
 $ git checkout master
+$ git merge fix3-branch
+
+$ git show
+# hash is 412724
+... do some work...
+$ git commit -m "1.1"
+$ git tag -a v1.1 -m "my version 1.1"
+$ git tag -a v1.0 412724 -m "my merged version"
+$ git show v1.0
+$ git tag -d v1.0
+
+$ git push bks master
+
+# if v1.9 is a remote tag, the following 2 ways to delete v1.9
+$ git push bks :refs/tags/v1.9
+$ git push origin --delete v1.9
+
+
+[create branch]
+
+$ git checkout -b hotfix
+...do some work and commit...
+$ git checkout master
+$ git merge hotfix
+# show branches that are have been merged into current branch
+$ git branch --merged
+$ git branch -d hotfix
+
+
+
+
+
+[basic development structure]
+
+$ git init
+$ git commit -m initial-version
+$ git checkout -b development
+...do some work...
+$ git commit -m "development process 3"
+$ git checkout -b topic
+...do some work...
+$ git commit -m "unstable topic branch"
+
+
+[remote teamwork]
+
+$ git checkout bks/master
+...do some work, commit will fail and need to create new branch(based on bks/master) to store changes...
+$ git checkout -b remote-update
+
+
+
+
+
+
 
 
 
