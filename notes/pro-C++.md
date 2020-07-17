@@ -672,7 +672,7 @@ exp:由于重载了operator+，会尝试将10.3隐式转换为Cell类型的对�
 
 - public: 本类、派生类、类外皆可调用（包括读取和写入）
 - protected: 本类、派生类可调用
-- private: 仅本类可调用
+- private: 仅本类可调用,派生类也不可调用
 
 #### 赋值与初始化
 
@@ -1384,7 +1384,13 @@ NOTE：不要将析构函数设置为const，否则无法正确地销毁const对
 
 ### constexpr(常量表达式)
 
-形式： constexpr int foo(){return 10;}
+形式： constexpr int foo(){return 10;}  // 函数无参数
+
+也可将变量绑定为字面常量（或模板中的参数）
+
+static consexpr int value = 24;  // static不是必须的
+
+
 
 机制及限制：编译期间对constexpr函数求值，函数不允许有任何副作用
 
@@ -1893,7 +1899,7 @@ virtual的缺点：程序执行额外操作，对指针解除引用以执行代�
 
 ### 运行时类型工具(run time type information)
 
-作用：运行时判断对象所属类
+作用：运行时判断对象所属类(类型判断)
 - dynamic_cast，可在OO层次结构中进行安全的类型转换
 - typeid运算符，`#include <typeifo>`,可在运行时查询对象，判断对象类型`ClsName& inst;typeid(inst) == typeid(ClsName2&)`，但通常应用虚方法提前处理类型。通常typeid的作用只在于日志和调试
 
@@ -1908,8 +1914,8 @@ exp：typeid的使用
 
 ### 非public继承
 
-protected Super：父类所有public方法和数据成员变为protected。
-private Super：父类所有public，protected方法和数据成员变为private。
+class Child: protected Super{};x：父类所有public方法和数据成员变为protected。
+class Child: private Super{};：父类所有public，protected方法和数据成员变为private。
 
 作用：降低父类的访问级别（更难被访问）
 
@@ -1999,7 +2005,7 @@ const Vs static
 
 const保护变量不被修改，替换#define来定义常量
 
-### 非局部变量的初始化顺序
+### 非局部变量的初始化顺序(mechanism)
 
 > 程序中所有的全局变量和类的静态数据成员都会在main()开始前初始化，且按一个源文件中出现的顺序初始化
 
@@ -2399,6 +2405,202 @@ NOTE:Grid<T>与Grid<E>并非同一类型，Grid<E>只能访问公共方法
 TODO： pg.282
 
 
+
+
+exp: 模板示例
+
+	template <typename T>
+	class Grid
+	{
+	public:
+		explicit Grid(size_t inWidth = kDefaultWidth,
+			size_t inHeight = kDefaultHeight)
+		:mWidth(inWidth),mHeight(inHeight){
+			initializer();
+		}
+		virtual ~Grid(){}
+		void setElementAt(size_t x, size_t y, const T& inElem){
+			mCells[x][y] = inElem;
+		}
+		T& getElmeAt(size_t x, size_t y) {
+			return mCells[x][y];
+		}
+		const T& getElmeAt(size_t, size_t y) const{
+			return mCells[x][y];
+		}
+		size_t getHeight() const {return mHeight;}
+		size_t getWidth() const {return mWidth;}
+		static const size_t kDefaultHeight = 10;
+		static const size_t kDefaultWidth = 10;
+	private:
+		void initializer(){
+			mCells.resize(mWidth);
+			for (std::vector<T>& column : mCells) {
+				colunm.resize(mHeight);
+			}
+		}
+		std::vector<std::vector<T> > mCells;  // don't use ...<T>> in C++11
+		size_t mWidth,mHeight;
+	}
+
+template <class T>  # 历史上曾经使用class
+template <typename T>
+2者作用相同，此处class并不要求T为一个类，而是所有皆可
+
+NOTE：模板要求实现也在头文件（或在最后include实现的文件.h或.cpp），编译器在创建模板实例前，要知道完整的定义包括方法的定义。若无include，则在实现文件.cpp的最后加上`template class Grid<int>;template class Grid<double>;`,如此可以模板限定可实例化的类型。
+
+编译器处理模板的过程：
+1. 遇到模板方法定义时，语法检查，但不编译模板（此时未传入参数）
+2. 遇到实例化模板，将类定义中的每个参数替换为实例参数，编译器得以生成实例模板代码
+3. 为泛型类的所有虚方法（如析构函数必须是虚方法）生成代码，对非虚方法，只为被调用的非虚方法生存代码。
+	- exp: 只有这2行代码时
+		- Grid<int> myGrid;
+		- myGrid.setElementAt(0,0,10);
+	- 只为此实例模板生成无参构造函数，析构函数，setElementAt()的代码。
+	- 因此，若Grid<T>中定义了如下方法：
+		- void ad(const T& elem) {elem++;}
+	- 即使传入Grid<T>的类型T不支持++操作，只要不调用ad方法，就不会报错
+
+template参数
+
+template <typename T = double, size_t Width = 12>
+typename为类型参数
+只有整数类型（不含double，float），枚举类型，指针，引用属于非类型参数
+可设置默认值
+
+exp: 调用时,Width必须为字面量,const变量,constexpr
+
+	Grid<> zeroDefault;  // 由于设置了默认值，所以不会报错
+	Grid<double> zeroDefault2;  // 由于设置了默认值，所以不会报错
+	Grid<double,12> first;  
+	const size_t wid = 12;
+	Grid<double, wid> second;
+
+	constexpr size_t get(){return 12;}
+	Grid<double, get()> third;
+
+方法模板
+
+NOTE: 需要在每个方法模板前都加上template<...>,同时使用2个模板时，要将类模板的声明放在成员模板前边，而不能合并。通常用T，E表示
+
+template <typename T>
+template <typename AnotherT>
+Grid<T>::Grid(const Grid<AnotherT>& src){
+	copyFrom(src);
+}
+
+template specialization(模板特例化)
+
+起因：
+- 定义模板类Grid<..>,但实例模板对某些类型无意义或不起效，
+- 且Grid类已存在，不能重用Grid这个名称，不能再定义一个非模板的class Grid{};（但是函数可以）
+- 需要对这些类型模板进行重载（重写），就要模板特例化。
+
+形式：template为空，const char*为要实例化的类型，将所有Grid类改为Grid<const char*>
+
+作用：在已定义普通模板的情况下，默认所有Grid<int>,Grid<double>,Grid<const char*>都会调用普通模板。而Grid<const char*>特例化后,则Grid<const char*>只会调用特例化后的模板
+
+exp: 
+
+	template <>
+	class Grid<const char*>{ommited;};
+	Grid<const char*>::Grid(size_t inWidth):mWidth(inWidth){}
+
+	Grid<const char*> spec;  // 需显式声明
+	spec.ommited;
+
+类模板派生
+
+class Sub: public Super<int>{};  // 继承实例模板不用template
+
+template <typename T>  // 继承类模板
+class Sub: public Super<T>{};  // 将所有Sub,Super类替换为Sub<T>,Super<T>即可
+template <typename T>
+Sub<T>::Sub(size_t inWidth):Super<T>(inWidth){}
+
+模板别名
+
+typedef myTemplate<int , double> aliasName  // specify all
+
+template <typenmae T1, typename T2>  // specify parts
+using aliasName = myTemplate<T1, double>;
+
+替换函数语法
+
+原理：返回类型在参数列表后指定（拖尾返回类型），因此解析时参数名称（及参数类型，t1+t2的类型）是已知的。（C++14中可省略拖尾返回类型）
+
+template<typename Type1, typename Type2>
+auto myFunc(const Type1& t1, const Type2& t2) -> decltype(t1+t2)
+{return t1 + t2;}
+
+###　函数模板
+
+同类模板
+
+	static const size_t NOT_FOUND = (size_t)(-1);
+	template <typename T>
+	size_t Find(T& value, T* arr, size_t size){
+		for (size_t i = 0; i < size; ++i) {
+			if (arr[i] == value) {
+				return i;
+			}
+		}
+		return NOT_FOUND;
+	}
+
+	int x = 3, Ar[] = {1,2,3,4};
+	size_t sizeAr = sizeof(Ar);
+	size_t result;
+	result = Find(x, Ar, sizeAr);  // calls Find<int> by deduction
+	result = Find<int>(x, Ar, sizeAr);  // calls Find<int> explicitly
+
+	template <typename T, size_t S>
+	size_t Find(T& value, T(&arr)[ S])  // ???
+	{ return Find(value,arr,S)}
+
+#### 函数模板特例化
+
+同普通模板特例化
+
+    template<>
+	size_t Find<const char*>(const char*& value, const char** arr, size_t size){
+		cout << "Specialize" << endl;
+		for (strcmp(arr[i], value) == 0) {
+			return i;
+		}
+		return NOT_FOUND;
+	}
+
+函数重载：用非模板函数重载, 同特例化作用相同.*非模板的优先级比模板高*。但调用普通函数写法为Find(x, Ar, sizeAr),不会自动推导类型，必须显式声明Find<type>，因此不推荐使用重载。
+
+NOTE：编译器优先选择最具体的版本，即非模板的版本
+
+友元
+
+形式：friend Cls<T> operator+ <T>(paramType param);在operator+后加上<T>以表明operator+本身是一个模板（即一个函数模板）。类模板和函数模板共用参数T
+
+	template <T>
+	class Grid;
+	template <typename T>
+	Grid<T> operator+(const Grid<T>& lhs, const Grid<T>& rhs){
+		Grid<T> elem;
+		elem.mValue = lhs.mValue + rhs.mValue;
+		return elem;
+	}
+
+	template <T>
+	class Grid{
+		..ommited..
+		friend Grid<T> operator+ <T>(const Grid<T>& lhs, const Grid<T>& rhs);
+	}
+
+可变模板(C++14)
+
+template <typename T>
+constexpr T pi = T(3.1415926);
+
+float piInt = pi<float>;
+long double piLong = pi<long double>;
 
 
 
@@ -3962,11 +4164,902 @@ exp:queue处理网络数据包缓冲。网络层缓存/保存数据包，超过�
 
 
 
-MARK Pg.422
 
 
 
 
+
+
+
+priority_queue的定义大致如下:
+template <class T, class Container = vector<T>,
+		class Compare = less<T> >
+- 调用priority_queue<Er>,
+- 会创建priority_queue<Er，Container = vector<Er>,Compare = less<Er> >
+- 容器为vector<Er>类型
+- 插入新元素时，要将其插入到适当的位置
+- 会调用less<Er>比较所有元素，即调用Er中的operator<比较所有元素
+- 因此必须在Er中实现operator<
+- 获取其中优先度最高的元素，p_queue.top()
+
+	bool operator<(const Error& lhs, const Error& rhs){
+		return lhs.mPriority < rhs.mPriority;
+	}
+	std::ostream& operator<<(std::ostream& os, const Error& err){
+		os << err.mError << " (priority is " << err.mPriority << " )";
+		return os;
+	}
+
+	class Error{
+	public:
+		Error(int priority = 30, const std::string& errMsg)
+		:mPriority(priority),mError(errMsg) {}
+		int getPriority() const { return mPriority;}
+		const std::string& getErrorMsg() const { return mError;}
+		friend bool operator<(const Error& lhs, const Error& rhs);
+		friend std::ostream& operator<<(std::ostream& os, const Error& err);
+	private:
+		int mPriority;
+		std::string mError;
+	};
+
+	class ErrorCorrelator{
+	public:
+		void addError(const Error& er){
+			mErrors.push(er);
+		}
+		Error getError(){
+			if (mErrors.empty()) {
+				throw out_of_range("empty queue");
+			}
+			Error top = mErrors.top();
+			mErrors.pop();
+			return top();
+		}
+	private:
+		priority_queue<Error> mErrors;
+	};
+
+关联容器（键值对）
+
+pair，在<utility>中，每个pair都保存2个数据
+
+相当于
+template <typename T1, typename T2>
+struct pair{
+	T1 first;
+	T2 second;
+	bool operator<(const T1& lhs, const T2& rhs){
+		if (lhs.first < rhs.first && lhs.second < rhs.second) {
+			return true;
+		}
+		return false;
+	}
+};
+
+创建pair的几种方法
+
+1. pair<string, int> mp("hel",5);
+
+2. pair<string, int> mp(first="hel",second=5);
+
+3. pair<string, int> mp;
+mp.first="hel";
+mp.second=5;
+
+4. pair<string, int> mpCopy(mp);
+
+5. auto mp = make_pair("hel",5);
+
+
+Map
+
+insert：不替换旧值，插入的元素也可为pair，也可为iterator
+
+	map<int, Data> myData;
+	auto ret = myData.insert({12, Data(10)});  // auto为pair<map<int,Data>::iterator, bool>
+
+	map<int, Data> another;
+	myData.insert(begin(another),end(another));
+
+operator[]则会替换旧值，总是需要先创建一个新值对象,并修改myData
+myData[12] = Data(10);
+
+find(key),确认元素是否存在，然后用setVal(val)插入新值，可避免报错或不适当的插入
+auto it = myData.find(5);
+if (it != end(myData)) {
+	it-> second.setVal(Data(14));
+}
+
+erase(key)删除元素
+
+	class BankAccount{
+	public:
+		BankAccount(int acctNum, const std::string& name)
+		:mAcctNum(acctNum), mName(name){}
+		void setAccountNum(int acctNum) {mAcctNum = acctNum;}
+		int getAcctNum() const { return mAcctNum;}
+		void setClientName(const std::string& name) { mName = name;}
+		const std::string& getClientName () const { return mName;}
+		void rmAccount(){}
+	private:
+		int mAcctNum;
+		std::string& mName;
+	};
+
+	class BankDB{
+	public:
+		bool addAccount(const BankAccount& acct){
+			auto res = mAccounts.insert({acct.getAcctNum,acct});
+			return res.second;
+		}
+		void delAcct(int acctNum){
+			mAccounts.erase(acctNum);
+		}
+		BankAccount& findAccount(int acctNum){
+			auto it = mAccounts.find(accNum);
+			if (it == end(mAccounts)){
+				throw out_of_range("empty");
+			}
+			return it->second;
+		}
+		BankAccount& findAccount(const std::string& name){
+			for (auto& p : mAccounts) {
+				if (p.second.getClientName() == name) 
+					return p.second;
+			}
+			throw out_of_range("not the name");
+		}
+		void mergeDatabase(BankDB& db){
+			mAccounts.insert(begin(db.mAccounts),end(db.mAccounts));
+			db.mAccounts.clear();
+		}
+	private:
+		map<int, BankAccount> mAccounts;
+	};
+
+
+multimap
+
+没有operator[],insert始终成功，因为它允许相同的键值对
+
+mark Pg.442
+
+
+## 算法
+
+将迭代器作为中介操作容器，而不直接操作容器本身
+<algorithm>,<numeric>
+
+exp: find
+
+	Contain<..> Container;
+
+	auto it = find(beign(container),end(container),searchValue);
+	if (it == end(container)) { cout << "not found" << endl;}
+
+exp:find_if,将元素传入conditionFunc并判断，为true则说明找到
+
+	bool conditionFunc(elemType el)
+	{
+		elemType SomeValue = ..;
+		return el > SomeValue;
+	}
+	auto it = find_if(beign(container),end(container),conditionFunc);
+	if (it == end(container)) { cout << "not found" << endl;}
+	else { cout << *it << endl; }
+
+exp: accumulate,返回一个数类型的值,即auto通常为int，double，long int
+	
+	auto sum = accumulate(beign(container),end(container),initialValue);
+
+### lambda（是一种仿函数）
+
+> NOTE：仿函数在C++中的作用为闭包
+
+形式（Pg.464)：auto rt = [capture_block](paramType param)mutable exception_specification attribute_specifier -> return Type{ body };
+
+说明：
+- [var]用来捕捉(通常不变的）变量用于直接在lambda的body中使用，默认传值副本,且此变量是`只读`的，要修改需要引用[&var],此时iterator变化时，var的值都会改变。
+- (parmaType param)为匿名函数的参数,没有可整个省略
+- {},函数体
+
+exp: 通过()整体包裹lambda，直接使用匿名函数
+
+	int value = 2;
+	int res = ([value](int mid){return value*6+mid;})(13);  // 13即参数mid
+
+exp: []的使用
+
+	double captureVar = 2.13;
+	auto rt = [localStr = "As: ", captureVal]{ cout << localStr << captureVar << param << endl;};
+
+exp: unique_ptr不能复制只能移动,需使用std::move.
+
+	auto mPtr = std::make_unique<double>(3.14);
+	auto myLambda = [p = std::move(mPtr)] { std::cout << *p; }
+
+<functional>的function是多态的函数对象，类似函数指针。
+
+形式：function<returnType(paramType,paramType2)> fn(){};无参显式声明void
+
+	// function<int(void)>可由auto替换
+	function<int(void)> multiplyBy2Lambda(int x){
+		return [x]{ return 2*x; };
+	}
+	function<int(void)> fn = multiplyBy2Lambda(5);
+	cout << fn() << endl;
+
+exp: lambda作为函数参数
+
+	void test(const vector<int>& vec, const function<bool(int)>& callback){
+		for (const auto& i :vec) {
+			if(!callback(i)) break;
+		}
+	}
+	vector<int> vec{1,2,3,4,5};
+	test(vec, [](int i){return i < 6;});
+
+exp:countif,counter记录运行次数，filtered记录符合条件的元素数量
+
+	vector<int> vec{1,2,3,4,5,6};
+	int counter = 0;
+	int val = 3;
+	int filtered = countif(cbegin(vec),cend(vec),[val,&counter](int comp){counter++; return comp > val;})
+
+exp: generate,[&value]每次都会改变
+
+	vector<int> vec(10);
+	int value = 1;
+	generate(begin(vec),end(vec),[&value]{value*=2; return value;})
+
+### 函数对象（function object）
+
+> 又称仿函数（functor）,是用类对象取代函数指针的技术
+
+算术函数对象:plus，minus，multiplies，divides，modulus
+
+优点：可以回调形式传递给算法
+
+plus<int> mp;
+int res = mp(4,5);
+
+double mult = accumulate(cbegin(nums),cend(nums),1, multiplies<int>());
+
+透明运算符仿函数
+
+指忽略模板类型参数，它们是异构的，会自动判断类型，建议使用它
+
+exp: multiplies<>()不要输入参数int，这样不会损失精度
+
+	vector<int> nums{1,2,4};
+	double result = acumulate(cbegin(nums),cend(nums),1.1, multiplies<>());
+
+比较函数对象：equal_to,not_equal_to,less,greater,less_equal,greater_equal
+
+priority_queue<int,vector<int>,greater<>> greater_queue;
+
+逻辑函数对象：logical_not,logical_and,logical_or
+
+exp: 实现allTrue()函数
+
+	bool allTrue(const vector<bool>& flags){
+		// true值为1，false值为0
+		return accumulate(begin(flags), end(flags), true, logical_and<>());
+	}
+
+### 函数对象适配器
+
+Pg.470-548
+
+
+
+## STL扩展
+
+每个STL容器都接受一个Allocator类型作为模板参数
+template <class T, class Allocator = allocator<T>> class vector;
+allocator()进行内存分配,deallocator()进行内存释放
+
+迭代器适配器
+
+## 深入了解模板
+
+类型参数，非类型参数，模版参数模板（template template）
+
+
+模版参数模板
+
+形式： template<..., template<templateTypeParams>,...>
+作用： 不用传2次参数，因此以避免错误。
+
+exp: 1,2需要传递2次int，3,4则会自动将int传递给第二个参数。
+
+	// 1. 普通模板
+	template<typename T, typename Container>
+	class Grid{
+	private:
+		std::vector<Container> mCells;
+	}
+	Grid<T,Container>::func(){}
+
+	Grid<int, vector<int>> ins;  // vector<>参数必须与前边相同，否则会报古怪的错误
+
+	// 2. 与1相同，但设置了默认值
+	template<typename T, typename Container = std::vector<T>>
+	class Grid{
+	private:
+		std::vector<Container> mCells;
+	}
+	Grid<T,Container>::func(){}
+	Grid<int, vector<int>> ins;
+
+	// 3.模板参数模板
+	template<typename T, template<typename E, typename Allocator = std::allocator<E>> class Container = std::vector>
+	// 调用时为当作一个类模板，因此为Container<E>
+	class Grid{
+	private:
+		std::vector<Container<T>> mCells;
+	};
+	Grid<T,Container<T>>::func(){}  // keyPoint
+	Grid<int, vector> ins;
+
+	4. 为方便理解，将3改为以下形式
+	template <typename E, int sz>
+	class myVector{
+	public:
+		myVector():mSize(sz){}
+		void add(E elem) { mEl.push_back(elem);}
+		void get(int n){cout << mEl[n] << " : " << mSize << endl;}
+	private:
+		vector<E> mEl;
+		int mSize;
+	};
+
+	template<typename T, template<typename E, int sz> class C = myVector>
+	class Grid{
+	public:
+		Grid():mNum(34){}
+		void add(C<T,14>& elem){
+			mCells.push_back(elem);
+		}
+	private:
+	    const int mNum = 23;
+		std::vector< C<T,14> > mCells; 
+	};
+	C<T,14> Grid<T,C<T,14>>::func(int n){return mCells[n];} 
+	int main(){
+	    Grid<int,myVector> nel;  // 只要传入T，C即可
+	    myVector<int,14> temp;  // 必须与nel中C<T,14>相同才能正确添加（当作同一个类）
+	    nel.add(temp);
+	    return 0;
+	}
+	// keyPoint，传入实参给E,sz，对C进行实例化，此处为T，14,且要在每处都加上14，因此可以在template中为sz设置默认值
+
+核心：T作为实参传递给形参E，相当于对模版参数模板进行了实例化，实例化后只要传入T，C即可.
+
+exp: 非类型模板参数
+
+	template <typename T, const T defaultVal = T()>
+	class Grid{};
+	template <typename T, const T defaultVal>
+	Grid<T, defaultVal>::func(){}
+
+	Grid<int,10> mGd;
+
+exp: 引用必须是常量表达式，必须引用具有静态存储时间和外部或内部链接范围的完整对象。
+
+	namespace {
+		const int defaultVal = 11;
+		const Cell defaultCell(1.3);
+	}
+	template <typename T, const T& defaultVal>
+	class Grid{};
+	template <typename T, const T& defaultVal>
+	Grid<T, defaultVal>::func(){}
+
+	Grid<int,defaultVal> mGd;
+	Grid<Cell,defaultCell> mGdCell;
+
+模板部分特例化
+
+template <typename T, size_t Width>
+class Grid{ommited};
+
+// in Gd.cpp
+#include "Grid.h"
+template <size_t Width>
+class Grid<const char*, Width> {ommited};
+
+Grid<int,2> gd;
+Grid<const char*,3> gd;
+
+// in Gd2.cpp
+#include "Grid.h"
+#include <memory>
+template <typename T>
+class Grid<T*>{
+private:
+	std::vector<std::vector<std::unique_ptr<T>>> mCells;
+}
+
+重载模拟函数部分特例化（原本是T，现在重载为T*）
+
+	template <typename T>
+	size_t Find(T*& value, T** arr, size_t size){
+		for (size_t i = 0; i < size; ++i) {
+			if (arr[i] == value) {
+				return i;
+			}
+		}
+		return NOT_FOUND;
+	}
+
+### 模板递归
+
+创建多维网格
+
+#include <iostream>
+#include <vector>
+#include <utility>
+using namespace std;
+
+
+
+
+
+template <typename T>
+class OneDGrid
+{
+public:
+	explicit OneDGrid(size_t inSize = kDefaultSize)
+	{
+		mElems.resize(inSize);
+	}
+	virtual ~OneDGrid(){}
+	T& operator[](size_t x)	{
+		return mElems[x];
+	}
+
+	const T& operator[](size_t x) const	{
+		return mElems[x];
+	}
+	void resize(size_t newSize)	{
+		mElems.reisze(newSize);
+	}
+	size_t getSize() const { return mElems.size();}
+	static const size_t kDefaultSize = 10;
+private:
+	std::vector<T> mElems;
+};
+
+OneDGrid<int> single;
+OneDGrid<OneDGrid<int> > twoD;
+OneDGrid<OneDGrid<OneDGrid<int> > > threeD;
+
+// 设置递归，并对1特例化
+template <typename T, size_t N>
+class NDGrid
+{
+public:
+	explicit NDGrid(size_t inSize = kDefaultSize)
+	{
+		// 内部grid调用默认构造函数，因此NDGrid初始化时需显式调用inner_insstance.resize(parentSize)以使其初始化为父类大小
+		resize(inSize);  
+
+	}
+	virtual ~NDGrid(){}
+	NDGrid<T, N-1>& operator[](size_t x)	{
+		return mElems[x];
+	}
+
+	const NDGrid<T, N-1>& operator[](size_t x) const
+	{
+		return mElems[x];
+	}
+	void resize(size_t newSize)	{
+		mElems.reisze(newSize);
+		for (auto& element : mElems) {
+		    element.resize(newSize);
+		}
+	}
+	size_t getSize() const { return mElems.size();}
+	static const size_t kDefaultSize = 10;
+private:
+	std::vector<NDGrid<T, N-1> > mElems;
+};
+
+template <typename T>
+class NDGrid<T,1>
+{
+public:
+	explicit NDGrid(size_t inSize = kDefaultSize)
+	{
+		resize(inSize);
+	}
+	virtual ~NDGrid(){}
+	T& operator[](size_t x)	{
+		return mElems[x];
+	}
+
+	const T& operator[](size_t x) const	{
+		return mElems[x];
+	}
+	void resize(size_t newSize)	{
+		mElems.reisze(newSize);
+	}
+	size_t getSize() const { return mElems.size();}
+	static const size_t kDefaultSize = 10;
+private:
+	std::vector<T> mElems;
+};
+
+### type inference(类型推导)与template结合
+
+exp: in inference.h,声明函数模板
+
+	#include <iostream>
+
+	class MyString;
+
+	class MyInt{
+	public:
+	    MyInt(int i) : mValue(i) {}
+	    MyInt operator+(const MyString& rhs) const;
+	    int getInt() const { return mValue; }
+	private:
+	    int mValue;
+	};
+
+	class MyString{
+	public:
+	    MyString(const std::string& str) :mString(str) {}
+	    MyString operator+(const MyInt& rhs) const;
+	    const std::string& getString() const { return mString; }
+	private:
+	    std::string mString;
+	};
+
+	template<typename T1, typename T2,typename Result>
+	Result DoAddition(const T1& t1, const T2& t2)
+	{
+		return t1 + t2;
+	}
+
+	template<typename T1, typename T2>
+	auto DoAdditionUpdate(const T1& t1, const T2& t2) -> decltype(t1 + t2)
+	// C++14中 -> decltype(t1 + t2) 可省略
+	{
+		return t1 + t2;
+	}
+
+exp: in inference.cpp
+
+    #include "test.h"
+    #include <string>
+    using namespace std;
+
+
+    MyInt MyInt::operator+(const MyString& rhs) const {
+       return mValue + stoi(rhs.getString());
+    }
+
+    MyString MyString::operator+(const MyInt& rhs) const {
+    	std::string str = mString;
+    	str.append(to_string(rhs.getInt()));
+    	return str;
+    }
+
+    int main(){
+        MyInt i(4);
+        MyString str("5");
+        // MyInt a = str + i;
+        MyInt a = i + str;
+        MyString b = str + i;
+
+        cout << a.getInt() << " :ok: " << b.getString() << endl;
+
+        auto c = DoAddition<MyInt, MyString, MyInt>(i, str);
+        auto d = DoAdditionUpdate(i, str);
+        auto e = DoAdditionUpdate(str, i);
+        
+        return 0;
+    }
+
+### 可变参数模板(...)
+
+形式： template<typename T1, typename... Types>  // 类型未确定，可传入任意类型
+
+exp: 以类型安全的方式，使用递归来获取每个参数
+
+void handleValue(int val){ cout << "int: " << val << endl; }
+void handleValue(string val){ cout << "string: " << val << endl; }
+void handleValue(double val){ cout << "double: " << val << endl; }
+
+// calls this while there's only one arg
+template<typename T>
+void processValues(T arg){
+    handleValue(arg);
+}
+
+// 每次递归都会复制参数
+template<typename T1, typename...Tn>
+void processValues(T1 arg1, Tn... args)
+{
+    handleValue(arg1);
+    processValues(args...);
+}
+
+// 改进为右值引用(字面量)传递参数
+template<typename T>
+void processValues(T&& arg){
+    handleValue(std::forward<T>(arg));
+}
+
+template<typename T1, typename...Tn>
+void processValues(T1&& arg1, Tn&&... args)
+{
+    int numOfArgs = sizeof...(args);
+    cout << numOfArgs << endl;
+    handleValue(std::forward<T1>(arg1));
+    processValues(std::forward<Tn>(args)...);
+}
+
+exp: 普通混合类
+
+    class Mix1{
+    public:
+        Mix1(int i=16) : mValue(i){}
+        virtual void mix1func(){cout << "mix1: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+    class Mix2{
+    public:
+        Mix2(int i=43) : mValue(i){}
+        virtual void mix2func(){cout << "mix2: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+
+    class MyClass : public Mix1, public Mix2
+    {
+    public:
+        // 调用指定的父类默认构造函数
+        // MyClass(const Mix1& mixin1, const Mix2& mixin2): Mix1(mixin1),Mix2(mixin2) {}
+        MyClass(const Mix1& mixin1, const Mix2& mixin2) {}  // 调用父类的默认构造函数，或唯一显式声明的构造函数(且需设置默认值)
+        virtual ~MyClass() {}
+        void getmy(){cout << "my " << mValue;}
+    private:
+        int mValue;
+    };
+    int main(){
+        MyClass a(Mix1(12), Mix2(33));
+        a.mix1func();
+        a.mix2func();
+        a.getmy();
+
+exp: 混合类
+
+    class Mix1{
+    public:
+        Mix1(int i) : mValue(i){}
+        virtual void mix1func(){cout << "mix1: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+    class Mix2{
+    public:
+        Mix2(int i) : mValue(i){}
+        virtual void mix2func(){cout << "mix2: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+
+    template<typename... Mixes>
+    class MyClass : public Mixes...
+    {
+    public:
+        MyClass(const Mixes&... mixin): Mixes(mixin)... {}
+        virtual ~MyClass() {}
+    };
+    int main(){
+        MyClass<Mix1, Mix2> a(Mix1(12), Mix2(33));
+        a.mix1func();
+        a.mix2func();
+
+        return 0;
+    }
+
+#### template meta programming(模板元编程)
+
+目标：在编译时执行一些计算，而不是运行时执行。
+
+exp:编译时阶乘 
+
+    template<unsigned char f>
+    class Factor
+    {
+    public:
+        static const unsigned long long val = (f * Factor<f-1>::val);
+    };
+    template<>
+    class Factor<0>
+    {
+    public:
+        static cosnt unsigned long long val = 1;
+    };
+
+exp:编译时展开模板(通常不用)
+
+    template<int i>
+    class Loop
+    {
+    public:
+        template<typename FuncType>
+        static inline void Do(FuncType func){
+            Loop<i-1>::Do(func);
+            func(i);
+        }
+    };
+
+    template<>
+    class Loop<0>
+    {
+    public:
+        template<typename FuncType>
+        static inline void Do(FuncType /* func */) { }
+    };
+    void DoWork(int i) { cout << "Working: " << i << endl; }
+    void DoWork2(string str, int i) { cout << str << " is Working: " << i << endl; }
+
+
+    int main(){
+        cout << Factor<6>::val << endl;  // 使用::val访问编译时的值
+
+        Loop<5>::Do(DoWork);
+        Loop<5>::Do(std::bind(DoWork2, "who", placeholders::_1));  // 使用bind设置多变量
+        return 0;
+    }
+
+exp: tuple的编译
+
+    #include <iostream>
+    #include <string>
+    #include <tuple>
+    using namespace std;
+
+    template<int n, typename TupleType>
+    class Tuple_print{
+    public:
+        Tuple_print(const TupleType& t)  
+        {  // 拷贝构造函数
+            Tuple_print<n-1,TupleType> tp(t);
+            cout << get<n-1>(t) << endl;
+        }
+    };
+    template<typename TupleType>
+    class Tuple_print<0, TupleType>
+    {
+    public:
+        Tuple_print(const TupleType& /* arg */) {}
+    };
+    // 使用quick_print简化
+    template<typename T>
+    void quick_print(const T& t){
+        Tuple_print<tuple_size<T>::value, T> tp(t);
+    };
+
+    int main(){
+        using MyTuple = tuple<int, string, bool>;
+        MyTuple t1(17,"Test", true);
+        Tuple_print<tuple_size<MyTuple>::value, MyTuple> tp(t1);
+
+        auto t2 = make_tuple("quick_test",125,false, 3.4);
+        quick_print(t2);
+        return 0;
+    }
+
+### 类型trait
+
+在<type_traits>头文件中，用以判断类型特征
+如is_void, is_integral, is_reference
+
+exp: is_integral的定义及使用
+
+    #include <iostream>
+    #include <string>
+    // using namespace std;会导致typedef integral_constant<bool, true> true_type;产生歧义
+
+    template <class T, T v>
+    struct integral_constant {
+        static constexpr T value = v;
+        typedef T value_type;
+        typedef integral_constant<T,v> type;  // 创建integral_constant<type,arg>类型并保存,不能修改,integral_constant<type,arg>::type以调用此类型
+        constexpr operator value_type() const noexcept {return value;}
+        constexpr value_type operator()() const noexcept {return value;}
+    };
+    typedef integral_constant<bool, true> true_type;
+    typedef integral_constant<bool, false> false_type;
+
+    template<class T>
+    struct is_integral :public false_type {};
+    template<>
+    struct is_integral<int> :public true_type{};
+    template<>
+    struct is_integral<bool> :public true_type{};
+    // long,char等也继承true_type
+
+    template<typename T>
+    void process_helper(const T& t, true_type /*parameter*/)
+    {
+        std::cout << t << " is int" << std::endl;
+    }
+
+    template<typename T>
+    void process_helper(const T& t, false_type)
+    {
+        std::cout << t << " is not int" << std::endl;
+    }
+
+    template<typename T>
+    void process(const T& t)
+    {
+        process_helper(t, typename is_integral<T>::type());
+    }
+
+
+    int main(){
+		typedef integral_constant<int, 5> int_type;
+		int_type ff;
+		std::cout << ff << std::endl;  // 调用operator value_type()
+		std::cout << int_type::value << std::endl; 
+		std::cout << ff() << std::endl;  // 调用operator()()
+
+        process('a');
+        if (is_integral<double>::value) {
+            std::cout << "int val";
+        } else {
+            std::cout << "not int";
+        }
+
+        return 0;
+    }
+
+
+[injected-class-name](https://en.cppreference.com/w/cpp/language/injected-class-name) is the name of a class within the scope of said class.In a class scope, the name of the current class is treated as if it were a *public member name* and they're inherited
+
+> NOTE:`operator something`,组成一个特殊函数
+
+    operator+(param another);
+    operator+=(param another);
+    operator++();
+    operator()(param another);
+    
+    param another = 3;
+    int y;
+    y = x + 3;
+    x += 3;
+    x ++;
+    x(3);
+    
+> operator的特殊形式:operator someType()
+作用:typeid(instance)依然为Cell,但cout<< instance,instance+3(除了instace.val)等对instance调用的操作,都会调用operator someType(),并使用其返回值进行操作
+
+    template<typename T>
+    class Cell{
+    public:
+        operator int() { return 4;}  // 类型(此处为int)需与返回值匹配
+        int val;
+    };
+    Cell instance;
+    cout << instance;  // instance的值为4
+
+typedef 
+
+
+
+
+mark pg.608
 
 
 
