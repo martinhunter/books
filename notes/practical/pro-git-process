@@ -9,7 +9,7 @@ $ git config --global core.editor emacs
 $ git config --global core.editor "C:/Program Files/Notepad++/notepad++.exe"
 
 # set your command alias, now `git his` == `git log --pretty=oneline --graph`
-$ git config --global alias.his log --pretty=oneline --graph
+$ git config --global alias.his log --pretty=oneline --decorate --graph
 
 
 [installation]
@@ -40,7 +40,7 @@ $ git mv file_from file_to
 ...modify some file...
 $ git commit -am 'mod some file'
 $ git log -pretty=oneline --graph
-NOTE: press q to quit log
+NOTE: press `q` to quit log/diff
 ...fix some typo error...
 $ git diff --cached
 $ git commit --amend
@@ -57,8 +57,10 @@ $ git remote add bks https://github.com/martinhunter/books.git
 $ git remote -v
 $ git fetch bks
 ...remote adds/modifies fix3-branch...
-NOTE: pull will fetch and merge fix3-branch to local current branch
+NOTE: pull will fetch and merge fix3-branch to current branch. creating a new branch to merge is recommended
+$ git checkout -b temp
 $ git pull bks fix3-branch
+$ git checkout master
 
 
 
