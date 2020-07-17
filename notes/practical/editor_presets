@@ -1,0 +1,36 @@
+[sublimetext presets]
+
+DO:choose compiler/interpreter version
+1. in sublime "preference/browse packages"
+2. $ cd user
+3. create python3.sublime-build and write
+
+```
+{
+	"cmd":["D:/Programs/Python/Python37-32/python","-u","$file"],
+	"file_regex":"^[ ]*File \"(...*?)\", line ([0-9]*)",
+	"selector": "source.python",
+	"encoding":"cp936"
+}
+```
+
+[emacs presets]
+DO: modify interface
+1. C-x C-f ~/.emacs.d/init.el
+2. write the following in init.el
+
+```
+;;close alert
+(setq ring-bell-function 'ignore)
+(display-time)
+(global-linum-mode t)
+(electric-pair-mode t)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+(setq inhibit-splash-screen 1)
+(set-face-attribute 'default nil :height 160)
+(global-hl-line-mode t)
+
+;;highlight pairs
+(add-hook 'emacs-lisp-mode-hook 'show-paren-mode)
+```
