@@ -29,7 +29,7 @@ $ git config --global user.email johndoe@example.com
 
 $ git config --global core.editor emacs
 
-$ git config --global core.editor "'C:/Program Files/Notepad++/notepad++.exe'
+$ git config --global core.editor "C:/Program Files/Notepad++/notepad++.exe"
 -multiInst -notabbar -nosession -noPlugin"  # on windows
 
 ### help
@@ -111,8 +111,8 @@ Removing Files
 remove it from your tracked files (more accurately, remove it from your staging area) and then commit
 file will not be tracked
 
-$ git rm <file>  # 执行了删除文件，并将删除文件这个修改提交到staging area，且提交后日后不再track此文件（已被删除）
--f  # remove file that's already added to staging area and delete this file,并将删除文件这个修改提交到staging area。 慎用
+$ git rm <file>  # 执行了删除文件，并将删除文件这个修改提交到staging area，且提交后日后不再track此文件(已被删除)
+-f  # remove file that's already added to staging area and delete this file,并将删除文件这个修改提交到staging area. 慎用
 --cached  #  实际不删除此文件，但会将删除文件这个修改提交到staging area
 
 以上都会将文件从status的untracedFiles中删除，git add file依然可以添加此文件
@@ -132,7 +132,7 @@ $ git log
 --pretty=format:"%h - %an, %ar : %s" --graph
 --since=2.weeks and --until="2020-06-15"
 --grep str  # 提交信息中包含str
--S something # 找到something出现次数被修改的提交。例如增加了一次函数调用，就可用-S funcName
+-S something # 找到something出现次数被修改的提交.例如增加了一次函数调用，就可用-S funcName
 
 NOTE:press q to quit log
 
@@ -251,7 +251,7 @@ $ git branch -D <branch>  # force delete
 
 Basic Merging
 
-> three-way merge：(when master branch and issue are both modified)Git creates a new snapshot that results from the two snapshots pointed to by the branch tips（指2个分支当前指向的节点） and the common ancestor of the two(指开始分叉的节点）. merge and automatically creates a new commit that points to it
+> three-way merge：(when master branch and issue are both modified)Git creates a new snapshot that results from the two snapshots pointed to by the branch tips(指2个分支当前指向的节点) and the common ancestor of the two(指开始分叉的节点). merge and automatically creates a new commit that points to it
 
 $ git checkout master  # 切换到主干，分支被合并到主干
 $ git merge iss53
@@ -278,7 +278,7 @@ Remote Branches
 
 git ls-remote <remote> || git remote show <remote>  # get a full list of remote references
 
-远程跟踪分支：形式为<remote>/<branch>,例如远程仓库名为rem，使用git checkout rem/master来跳转至远程仓库的分支。
+远程跟踪分支：形式为<remote>/<branch>,例如远程仓库名为rem，使用git checkout rem/master来跳转至远程仓库的分支.
 
 
 exp: remote branch process
@@ -301,7 +301,7 @@ $ git fetch local2
 
 $ git checkout local2/master  # 在local2/master会进入detached HEAD 状态，除非在此之上创建新分支，否则任何修改都无法被保存
 
-$ git remote add local3 https://github.com/martinhunter2/books.git/  # when having multiple remote servers,assume you have another internal Git server that is used only for development by one of your sprint teams. This server is at github.com/martinhunter2/books.git/。添加多个服务器
+$ git remote add local3 https://github.com/martinhunter2/books.git/  # when having multiple remote servers,assume you have another internal Git server that is used only for development by one of your sprint teams. This server is at github.com/martinhunter2/books.git/.添加多个服务器
 
 $ git fetch local3  # local3指向local2/master分支
 
@@ -382,7 +382,7 @@ $ git push local2 --delete serverfix  # 通常不用，it removes the pointer fr
 	
 	$ git checkout local2/master  # 切换到B-remote节点，在local2/master会进入detached HEAD 状态，除非在此之上创建新分支，否则任何修改都无法被保存
 	
-	$ git remote add local3 https://github.com/martinhunter2/books.git/  # when having multiple remote servers,assume you have another internal Git server that is used only for development by one of your sprint teams. This server is at github.com/martinhunter2/books.git/。添加多个服务器
+	$ git remote add local3 https://github.com/martinhunter2/books.git/  # when having multiple remote servers,assume you have another internal Git server that is used only for development by one of your sprint teams. This server is at github.com/martinhunter2/books.git/.添加多个服务器
 	
 	$ git fetch local3  # local3指向local2/master分支
 	
@@ -514,7 +514,7 @@ Create Repository
 clone your repository to create a new bare repository, you run the
 clone command with the --bare option.
 
-$ git clone --bare my_project my_project.git  # 先回到git上一级目录，my_project为本地文件夹名称。`$ cp -Rf my_project/.git my_project.git` works roughly the same，只复制了.git中的内容
+$ git clone --bare my_project my_project.git  # 先回到git上一级目录，my_project为本地文件夹名称.`$ cp -Rf my_project/.git my_project.git` works roughly the same，只复制了.git中的内容
 
 Putting the Bare Repository on a Server
 
@@ -602,20 +602,20 @@ developers can rebase on it.
 #### Commit Guidelines
 
 $ git diff --check ：检查出可能的空白符错误
-$ git add --patch ：会先比较文件修改前后的不同之处，再询问是否stage。
+$ git add --patch ：会先比较文件修改前后的不同之处，再询问是否stage.
 
 $ git log --no-merges issue54..origin/master
 
 显式所有不在issue54上而在origin/master的commit，
-且不包含origin/master中merge节点的commit。
+且不包含origin/master中merge节点的commit.
 
 - issue54在D,origin/master在L，commits如下
 	- commits：{A-L}
-- 从2个分支分叉开始（不包含分叉节点）,所有origin/master的commit
+- 从2个分支分叉开始(不包含分叉节点),所有origin/master的commit
 	- commits：{D-L}
 - 包含其子分叉节点
 	- commits：{E,F}
-- 不包含子merge节点。
+- 不包含子merge节点.
 	- commits：{G,J}
 - --no-merges issue54..origin/master结果为
 	- commits：{DEFHIKL}
@@ -683,7 +683,7 @@ $ git push -f myfork featureA  # replace the featureA branch on the server with 
 --squash produce the repository state as if a real merge happened,without actually making a merge
 commit.
 
-- --squash is cleaner than --no-commit
+- `--squash` is cleaner than `--no-commit`
 	- --squash creates a 'normal' commit after $ git commit,`not a merged joint`.
 	- --no-commit creates a merged commit after $ git commit.
 
@@ -741,7 +741,7 @@ A...B : diverge node of A and B is C,and show commits of C to B(C not included).
 
 
   $ git merge-base contrib master  # 先获得2个分支的分叉点的hash
-  $ git diff <hash>  # 再比较当前分支与分叉节点。	
+  $ git diff <hash>  # 再比较当前分支与分叉节点.	
 
   $ git diff master...contrib  # shorthand for the command above
 
@@ -815,7 +815,7 @@ $ git checkout master  # now it will automatically find the corresponding url
 $ git pull
 $ git push
 
-Pull Request Refs
+### Pull Request `Ref`s
 
 show us what
 $ git ls-remote <remote>  # references are present on the server
@@ -888,12 +888,12 @@ $ git log --left-right refA..refB  # excludes intersection of refA and refB,--le
 
 git add -i
 
-#### Stashing Your Work
+#### Stashing Your Work(临时保存)
 
 Now you want to switch branches, but you don’t want to commit what you’ve been working on yet, so you’ll stash the changes.
 
-$ git stash  # you can stash many times and git will save as stash@{n}
-$ git stash list
+$ git stash  # each git stash creates a stash,saved as stash@{n}
+$ git stash list  # show stashes
 $ git checkout issue32
 ... do some work and commit ...
 $ git checkout master
@@ -975,7 +975,123 @@ not recommended,use [git-filter-repo](https://github.com/newren/git-filter-repo)
 
 
 
-MARK Pg.253
+MARK Pg.251
+
+Tree | Role
+- | - |
+HEAD | Last commit snapshot, next parent
+Index | Proposed next commit snapshot
+Working | Directory Sandbox
+
+$ git cat-file -p HEAD  # see what that snapshot looks like
+$ git ls-tree -r HEAD
+
+Index is your proposed next commit(staging area).
+$ git ls-files -s  # -s for status
+
+### The Role of Reset
+
+$ git reset <hash>  # git reset HEAD~~~ works as well
+
+Reset process:
+
+1. Move HEAD (--soft),HEAD still points to master,but `reset` makes master points to the commit. changes still staged
+2. Updating the Index (--mixed,default option for reset HEAD).update the index with the contents of whatever snapshot HEAD now points to. changes unstaged.
+3. Updating the Working Directory (--hard).totally discards all changes as if it never happened
+
+$ git reset file/path  # opposite of git add
+
+squash commits
+$ git reset --soft <hash>
+$ git commit -m "squashed"
+
+reset Vs checkout
+
+$ git reset <hash> <file>  # 不移动HEAD，不能加--soft,--mixed,--hard，恢复到未commit前的状态. WD safe
+
+$ git checkout <hash>  # !!! 回到特定历史事件查看当时的文件(会进入detached-HEAD状态)
+
+
+$ git checkout <hash> <file>  # 不移动HEAD，恢复到文件未修改，未stage的状态，可通过git restore恢复修改.reset --hard则完全不可恢复，not WD safe
+
+
+
+without path
+- checkout is safe 
+- reset --hard moves branch that HEAD points to while checkout just moves HEAD to another branch.WD Safe 
+
+### advanced merging
+
+提交时转换为LF，检出时转换为
+$ git config --global core.autocrlf true
+
+$ git merge anotherBranch # 尝试merge,分支内whitespace有修改
+... 冲突警告，分支显示为(master|merging) ...
+$ git merge --abort  # 跳出merge，分支显示为(master)
+
+$ git -Xignore-all-space  # ignores whitespace completely when comparing lines
+$ git -Xignore-space-change  # treats sequences of one or more whitespace characters as equivalent.
+
+manual re-merging
+
+$ git merge another  # to enter merge conflict state first
+
+- stage 1 is the common ancestor
+- stage 2 is your version(current branch)
+- stage 3 is from the MERGE_HEAD, the version you’re merging in
+- .common,.ours,.theirs是固定的，不可更改
+
+$ git show :1:hello.py > hello.common.py  # use `>` to make copies
+$ git show :2:hello.py > hello.ours.py  # `:2:hello.py` is shorthand for looking up its SHA
+$ git show :3:hello.py > hello.theirs.py
+
+$ git ls-files -u  # list hashes of unmerged files
+
+...modify hello.theirs.py manually...
+$ git merge-file -p \
+
+
+$ git diff --ours  # in conflict state,compare your result to what you had in your branch before the merge, in other words, to see what the merge introduced.Don't have to open the file with your editor
+$ git diff --theirs
+$ git diff --base -b  # see changes from both sides
+
+$ git clean -f  # clear temp files
+Removing hello.common.rb
+Removing hello.ours.rb
+Removing hello.theirs.rb
+
+$ git log --graph --oneline --decorate --all  # show all commits(including all branches and stashes)
+
+use checkout without merging
+
+$ git checkout --conflict=diff3 hello.py  # shows diff, --conflict=merge is default
+
+$ git config --global merge.conflictstyle diff3
+
+$ git log --oneline --left-right HEAD...MERGE_HEAD  # show unique commits of each branch
+
+$ git log --oneline --left-right --merge  # show conflict commits
+
+$ git diff  # see what you still have to resolve
+
+$ git log --cc -p -1  # see how something was resolved after the fact.
+
+Undoing Merges
+
+$ git reset --hard HEAD~
+
+$ git revert -m 1 HEAD  # -m 1 flag indicates which parent is the “mainline” and should be kept.like `reset ^HEAD` but doesn't delete merge joint.It actually creates a new commit that is copy of master before merge(^HEAD here) and discards all changes from another branch.
+
+now nothing in topic is reachable from master. if you make changes in topic and try to merge in, git will only merge these changes since revert. Use the commands below to bring back all changes from topic 
+
+$ git revert ^M  # un-revert the original merge
+
+Pg.287
+
+
+
+MARK
+
 
 
 
@@ -991,11 +1107,7 @@ MARK Pg.253
 
 ## Git Internals(mechanism)
 
-Tree | Role
-- | - |
-HEAD | Last commit snapshot, next parent
-Index | Proposed next commit snapshot
-Working | Directory Sandbox
+
 
 Git is fundamentally a content-addressable filesystem with a VCS user interface written on top of it.
 
@@ -1003,7 +1115,7 @@ When you make a commit, Git stores a commit object that contains a pointer to th
 content you staged
 
 
-所有不被指向的节点会被清除（rebase，branch -d）,因此要谨慎处理
+所有不被指向的节点会被清除(rebase，branch -d),因此要谨慎处理
 
 $ git diff master: Git directly compares the snapshots of the last commit of the topic branch you’re on and the snapshot of the last commit on the master branch. So if your master branch has moved forward
 since you created the topic branch from it, then you’ll get seemingly strange results.
