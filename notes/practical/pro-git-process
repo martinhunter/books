@@ -1,0 +1,77 @@
+[presets/configurations]
+
+config stored in /etc/gitconfig
+
+$ git config --global user.name "John Doe"
+$ git config --global user.email johndoe@example.com
+
+$ git config --global core.editor emacs
+$ git config --global core.editor "C:/Program Files/Notepad++/notepad++.exe"
+
+# set your command alias, now `git his` == `git log --pretty=oneline --graph`
+$ git config --global alias.his log --pretty=oneline --graph
+
+
+[installation]
+
+$ sudo dnf install git-all
+$ tar -zxf git-2.8.0.tar.gz
+$ cd git-2.8.0
+$ make configure
+$ ./configure --prefix=/usr
+$ make all doc info
+$ sudo make install install-doc install-html install-info
+
+$ git clone git://git.kernel.org/pub/scm/git/git.git  # self update
+
+
+[local basic workflow]
+
+$ git init
+$ touch .gitignore 
+$ git add *.c
+$ git add LICENSE
+# show short description of status
+$ git status -s
+$ git commit -m 'Initial project version'
+...modify some file...
+$ git rm --cached file.txt
+$ git mv file_from file_to
+...modify some file...
+$ git commit -am 'mod some file'
+$ git log -pretty=oneline --graph
+NOTE: press q to quit log
+...fix some typo error...
+$ git diff --cached
+$ git commit --amend
+$ git diff
+
+
+[remote basic workflow]
+
+branch 1: `origin` is default name for remote url
+$ git clone https://github.com/martinhunter/books.git
+branch 2: you can change remote url(origin) to a new name,like bks
+$ git remote add bks https://github.com/martinhunter/books.git
+
+$ git remote -v
+$ git fetch bks
+...remote adds/modifies fix3-branch...
+NOTE: pull will fetch and merge fix3-branch to local current branch
+$ git pull bks fix3-branch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

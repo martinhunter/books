@@ -672,7 +672,7 @@ exp:由于重载了operator+，会尝试将10.3隐式转换为Cell类型的对�
 
 - public: 本类、派生类、类外皆可调用（包括读取和写入）
 - protected: 本类、派生类可调用
-- private: 仅本类可调用
+- private: 仅本类可调用,派生类也不可调用
 
 #### 赋值与初始化
 
@@ -1384,7 +1384,13 @@ NOTE：不要将析构函数设置为const，否则无法正确地销毁const对
 
 ### constexpr(常量表达式)
 
-形式： constexpr int foo(){return 10;}
+形式： constexpr int foo(){return 10;}  // 函数无参数
+
+也可将变量绑定为字面常量（或模板中的参数）
+
+static consexpr int value = 24;  // static不是必须的
+
+
 
 机制及限制：编译期间对constexpr函数求值，函数不允许有任何副作用
 
@@ -1893,7 +1899,7 @@ virtual的缺点：程序执行额外操作，对指针解除引用以执行代�
 
 ### 运行时类型工具(run time type information)
 
-作用：运行时判断对象所属类
+作用：运行时判断对象所属类(类型判断)
 - dynamic_cast，可在OO层次结构中进行安全的类型转换
 - typeid运算符，`#include <typeifo>`,可在运行时查询对象，判断对象类型`ClsName& inst;typeid(inst) == typeid(ClsName2&)`，但通常应用虚方法提前处理类型。通常typeid的作用只在于日志和调试
 
@@ -1908,8 +1914,8 @@ exp：typeid的使用
 
 ### 非public继承
 
-protected Super：父类所有public方法和数据成员变为protected。
-private Super：父类所有public，protected方法和数据成员变为private。
+class Child: protected Super{};x：父类所有public方法和数据成员变为protected。
+class Child: private Super{};：父类所有public，protected方法和数据成员变为private。
 
 作用：降低父类的访问级别（更难被访问）
 
@@ -1999,7 +2005,7 @@ const Vs static
 
 const保护变量不被修改，替换#define来定义常量
 
-### 非局部变量的初始化顺序
+### 非局部变量的初始化顺序(mechanism)
 
 > 程序中所有的全局变量和类的静态数据成员都会在main()开始前初始化，且按一个源文件中出现的顺序初始化
 
@@ -2554,13 +2560,9 @@ auto myFunc(const Type1& t1, const Type2& t2) -> decltype(t1+t2)
 
 #### 函数模板特例化
 
-同普通模板特例化,但有些许不同
+同普通模板特例化
 
-	// 以下写法不符合C++规范，即Find<>里不能放T
-	template<typename T>
-	size_t Find<T>(T& value, T* arr, size_t size){}
-
-	// 以下符合C++模板特例化规范，即Find<>放const char*等实例类型
+    template<>
 	size_t Find<const char*>(const char*& value, const char** arr, size_t size){
 		cout << "Specialize" << endl;
 		for (strcmp(arr[i], value) == 0) {
@@ -4693,15 +4695,371 @@ private:
 
 ### type inference(类型推导)与template结合
 
+exp: in inference.h,声明函数模板
+
+	#include <iostream>
+
+	class MyString;
+
+	class MyInt{
+	public:
+	    MyInt(int i) : mValue(i) {}
+	    MyInt operator+(const MyString& rhs) const;
+	    int getInt() const { return mValue; }
+	private:
+	    int mValue;
+	};
+
+	class MyString{
+	public:
+	    MyString(const std::string& str) :mString(str) {}
+	    MyString operator+(const MyInt& rhs) const;
+	    const std::string& getString() const { return mString; }
+	private:
+	    std::string mString;
+	};
+
+	template<typename T1, typename T2,typename Result>
+	Result DoAddition(const T1& t1, const T2& t2)
+	{
+		return t1 + t2;
+	}
+
+	template<typename T1, typename T2>
+	auto DoAdditionUpdate(const T1& t1, const T2& t2) -> decltype(t1 + t2)
+	// C++14中 -> decltype(t1 + t2) 可省略
+	{
+		return t1 + t2;
+	}
+
+exp: in inference.cpp
+
+    #include "test.h"
+    #include <string>
+    using namespace std;
+
+
+    MyInt MyInt::operator+(const MyString& rhs) const {
+       return mValue + stoi(rhs.getString());
+    }
+
+    MyString MyString::operator+(const MyInt& rhs) const {
+    	std::string str = mString;
+    	str.append(to_string(rhs.getInt()));
+    	return str;
+    }
+
+    int main(){
+        MyInt i(4);
+        MyString str("5");
+        // MyInt a = str + i;
+        MyInt a = i + str;
+        MyString b = str + i;
+
+        cout << a.getInt() << " :ok: " << b.getString() << endl;
+
+        auto c = DoAddition<MyInt, MyString, MyInt>(i, str);
+        auto d = DoAdditionUpdate(i, str);
+        auto e = DoAdditionUpdate(str, i);
+        
+        return 0;
+    }
+
+### 可变参数模板(...)
+
+形式： template<typename T1, typename... Types>  // 类型未确定，可传入任意类型
+
+exp: 以类型安全的方式，使用递归来获取每个参数
+
+void handleValue(int val){ cout << "int: " << val << endl; }
+void handleValue(string val){ cout << "string: " << val << endl; }
+void handleValue(double val){ cout << "double: " << val << endl; }
+
+// calls this while there's only one arg
+template<typename T>
+void processValues(T arg){
+    handleValue(arg);
+}
+
+// 每次递归都会复制参数
+template<typename T1, typename...Tn>
+void processValues(T1 arg1, Tn... args)
+{
+    handleValue(arg1);
+    processValues(args...);
+}
+
+// 改进为右值引用(字面量)传递参数
+template<typename T>
+void processValues(T&& arg){
+    handleValue(std::forward<T>(arg));
+}
+
+template<typename T1, typename...Tn>
+void processValues(T1&& arg1, Tn&&... args)
+{
+    int numOfArgs = sizeof...(args);
+    cout << numOfArgs << endl;
+    handleValue(std::forward<T1>(arg1));
+    processValues(std::forward<Tn>(args)...);
+}
+
+exp: 普通混合类
+
+    class Mix1{
+    public:
+        Mix1(int i=16) : mValue(i){}
+        virtual void mix1func(){cout << "mix1: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+    class Mix2{
+    public:
+        Mix2(int i=43) : mValue(i){}
+        virtual void mix2func(){cout << "mix2: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+
+    class MyClass : public Mix1, public Mix2
+    {
+    public:
+        // 调用指定的父类默认构造函数
+        // MyClass(const Mix1& mixin1, const Mix2& mixin2): Mix1(mixin1),Mix2(mixin2) {}
+        MyClass(const Mix1& mixin1, const Mix2& mixin2) {}  // 调用父类的默认构造函数，或唯一显式声明的构造函数(且需设置默认值)
+        virtual ~MyClass() {}
+        void getmy(){cout << "my " << mValue;}
+    private:
+        int mValue;
+    };
+    int main(){
+        MyClass a(Mix1(12), Mix2(33));
+        a.mix1func();
+        a.mix2func();
+        a.getmy();
+
+exp: 混合类
+
+    class Mix1{
+    public:
+        Mix1(int i) : mValue(i){}
+        virtual void mix1func(){cout << "mix1: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+    class Mix2{
+    public:
+        Mix2(int i) : mValue(i){}
+        virtual void mix2func(){cout << "mix2: " << mValue << endl;}
+    private:
+        int mValue;
+    };
+
+    template<typename... Mixes>
+    class MyClass : public Mixes...
+    {
+    public:
+        MyClass(const Mixes&... mixin): Mixes(mixin)... {}
+        virtual ~MyClass() {}
+    };
+    int main(){
+        MyClass<Mix1, Mix2> a(Mix1(12), Mix2(33));
+        a.mix1func();
+        a.mix2func();
+
+        return 0;
+    }
+
+#### template meta programming(模板元编程)
+
+目标：在编译时执行一些计算，而不是运行时执行。
+
+exp:编译时阶乘 
+
+    template<unsigned char f>
+    class Factor
+    {
+    public:
+        static const unsigned long long val = (f * Factor<f-1>::val);
+    };
+    template<>
+    class Factor<0>
+    {
+    public:
+        static cosnt unsigned long long val = 1;
+    };
+
+exp:编译时展开模板(通常不用)
+
+    template<int i>
+    class Loop
+    {
+    public:
+        template<typename FuncType>
+        static inline void Do(FuncType func){
+            Loop<i-1>::Do(func);
+            func(i);
+        }
+    };
+
+    template<>
+    class Loop<0>
+    {
+    public:
+        template<typename FuncType>
+        static inline void Do(FuncType /* func */) { }
+    };
+    void DoWork(int i) { cout << "Working: " << i << endl; }
+    void DoWork2(string str, int i) { cout << str << " is Working: " << i << endl; }
+
+
+    int main(){
+        cout << Factor<6>::val << endl;  // 使用::val访问编译时的值
+
+        Loop<5>::Do(DoWork);
+        Loop<5>::Do(std::bind(DoWork2, "who", placeholders::_1));  // 使用bind设置多变量
+        return 0;
+    }
+
+exp: tuple的编译
+
+    #include <iostream>
+    #include <string>
+    #include <tuple>
+    using namespace std;
+
+    template<int n, typename TupleType>
+    class Tuple_print{
+    public:
+        Tuple_print(const TupleType& t)  
+        {  // 拷贝构造函数
+            Tuple_print<n-1,TupleType> tp(t);
+            cout << get<n-1>(t) << endl;
+        }
+    };
+    template<typename TupleType>
+    class Tuple_print<0, TupleType>
+    {
+    public:
+        Tuple_print(const TupleType& /* arg */) {}
+    };
+    // 使用quick_print简化
+    template<typename T>
+    void quick_print(const T& t){
+        Tuple_print<tuple_size<T>::value, T> tp(t);
+    };
+
+    int main(){
+        using MyTuple = tuple<int, string, bool>;
+        MyTuple t1(17,"Test", true);
+        Tuple_print<tuple_size<MyTuple>::value, MyTuple> tp(t1);
+
+        auto t2 = make_tuple("quick_test",125,false, 3.4);
+        quick_print(t2);
+        return 0;
+    }
+
+### 类型trait
+
+在<type_traits>头文件中，用以判断类型特征
+如is_void, is_integral, is_reference
+
+exp: is_integral的定义及使用
+
+    #include <iostream>
+    #include <string>
+    // using namespace std;会导致typedef integral_constant<bool, true> true_type;产生歧义
+
+    template <class T, T v>
+    struct integral_constant {
+        static constexpr T value = v;
+        typedef T value_type;
+        typedef integral_constant<T,v> type;  // 创建integral_constant<type,arg>类型并保存,不能修改,integral_constant<type,arg>::type以调用此类型
+        constexpr operator value_type() const noexcept {return value;}
+        constexpr value_type operator()() const noexcept {return value;}
+    };
+    typedef integral_constant<bool, true> true_type;
+    typedef integral_constant<bool, false> false_type;
+
+    template<class T>
+    struct is_integral :public false_type {};
+    template<>
+    struct is_integral<int> :public true_type{};
+    template<>
+    struct is_integral<bool> :public true_type{};
+    // long,char等也继承true_type
+
+    template<typename T>
+    void process_helper(const T& t, true_type /*parameter*/)
+    {
+        std::cout << t << " is int" << std::endl;
+    }
+
+    template<typename T>
+    void process_helper(const T& t, false_type)
+    {
+        std::cout << t << " is not int" << std::endl;
+    }
+
+    template<typename T>
+    void process(const T& t)
+    {
+        process_helper(t, typename is_integral<T>::type());
+    }
+
+
+    int main(){
+		typedef integral_constant<int, 5> int_type;
+		int_type ff;
+		std::cout << ff << std::endl;  // 调用operator value_type()
+		std::cout << int_type::value << std::endl; 
+		std::cout << ff() << std::endl;  // 调用operator()()
+
+        process('a');
+        if (is_integral<double>::value) {
+            std::cout << "int val";
+        } else {
+            std::cout << "not int";
+        }
+
+        return 0;
+    }
+
+
+[injected-class-name](https://en.cppreference.com/w/cpp/language/injected-class-name) is the name of a class within the scope of said class.In a class scope, the name of the current class is treated as if it were a *public member name* and they're inherited
+
+> NOTE:`operator something`,组成一个特殊函数
+
+    operator+(param another);
+    operator+=(param another);
+    operator++();
+    operator()(param another);
+    
+    param another = 3;
+    int y;
+    y = x + 3;
+    x += 3;
+    x ++;
+    x(3);
+    
+> operator的特殊形式:operator someType()
+作用:typeid(instance)依然为Cell,但cout<< instance,instance+3(除了instace.val)等对instance调用的操作,都会调用operator someType(),并使用其返回值进行操作
+
+    template<typename T>
+    class Cell{
+    public:
+        operator int() { return 4;}  // 类型(此处为int)需与返回值匹配
+        int val;
+    };
+    Cell instance;
+    cout << instance;  // instance的值为4
+
+typedef 
 
 
 
 
-MARK
-
-
-
-
+mark pg.608
 
 
 
