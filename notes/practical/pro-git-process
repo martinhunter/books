@@ -8,6 +8,9 @@ $ git config --global user.email johndoe@example.com
 $ git config --global core.editor emacs
 $ git config --global core.editor "C:/Program Files/Notepad++/notepad++.exe"
 
+# set your command alias, now `git his` == `git log --pretty=oneline --graph`
+$ git config --global alias.his log --pretty=oneline --graph
+
 
 [installation]
 
@@ -32,8 +35,43 @@ $ git add LICENSE
 $ git status -s
 $ git commit -m 'Initial project version'
 ...modify some file...
+$ git rm --cached file.txt
+$ git mv file_from file_to
+...modify some file...
 $ git commit -am 'mod some file'
+$ git log -pretty=oneline --graph
+NOTE: press q to quit log
+...fix some typo error...
+$ git diff --cached
+$ git commit --amend
+$ git diff
+
 
 [remote basic workflow]
 
-$ git clone <url>
+branch 1: `origin` is default name for remote url
+$ git clone https://github.com/martinhunter/books.git
+branch 2: you can change remote url(origin) to a new name,like bks
+$ git remote add bks https://github.com/martinhunter/books.git
+
+$ git remote -v
+$ git fetch bks
+...remote adds/modifies fix3-branch...
+NOTE: pull will fetch and merge fix3-branch to local current branch
+$ git pull bks fix3-branch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
