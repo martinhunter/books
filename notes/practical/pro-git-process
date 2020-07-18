@@ -11,6 +11,32 @@ $ git config --global core.editor "C:/Program Files/Notepad++/notepad++.exe"
 # set your command alias, now `git his` == `git log --pretty=oneline --graph`
 $ git config --global alias.his log --pretty=oneline --decorate --graph
 
+%start auto Fix / Remove Trailing Whitespace
+$ cat > .git/hooks/pre-commit
+
+in pre-comit, write
+
+```
+#!/bin/sh
+if git-rev-parse --verify HEAD >/dev/null 2>&1 ; then
+   against=HEAD
+else
+   # Initial commit: diff against an empty tree object
+   against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+fi
+# Find files with trailing whitespace
+for FILE in `exec git diff-index --check --cached $against -- | sed '/^[+-]/d' | sed -r 's/:[0-9]+:.*//' | uniq` ; do
+   # Fix them!
+   sed -i 's/[[:space:]]*$//' "$FILE"
+   git add "$FILE"
+done
+exit
+```
+
+$ chmod +x .git/hooks/pre-commit
+%end
+
+
 
 [installation]
 
@@ -71,16 +97,18 @@ $ git merge fix3-branch
 
 $ git show
 # hash is 412724
-... do some work...
+... work...
 $ git commit -m "1.1"
 $ git tag -a v1.1 -m "my version 1.1"
 $ git tag -a v1.0 412724 -m "my merged version"
 $ git show v1.0
 $ git tag -d v1.0
 
+# input name and password for the first time
+$ git config --global credential.helper cache. 
 $ git push bks master
 
-# if v1.9 is a remote tag, the following 2 ways to delete v1.9
+# if v1.9 is a remote tag, there're 2 ways to delete v1.9
 $ git push bks :refs/tags/v1.9
 $ git push origin --delete v1.9
 
@@ -88,7 +116,7 @@ $ git push origin --delete v1.9
 [create branch]
 
 $ git checkout -b hotfix
-...do some work and commit...
+...work and commit...
 $ git checkout master
 $ git merge hotfix
 # show branches that are have been merged into current branch
@@ -99,30 +127,110 @@ $ git branch -d hotfix
 
 
 
-[basic development structure]
+[basic development structure ???]
 
 $ git init
 $ git commit -m initial-version
 $ git checkout -b development
-...do some work...
+...do some commits...
 $ git commit -m "development process 3"
 $ git checkout -b topic
-...do some work...
+...work and commits...
 $ git commit -m "unstable topic branch"
+
+* c4705fb (HEAD -> devlop) devlop-3
+* 9be07e4 devlop-2
+* 436fb18 devlop-1
+* c7f7d92 (master) quick-init
+* 3515c23 init
+
+$ git checkout master
+# git merge hash will merge to specified node
+$ git merge 9be07e4
+* c4705fb (HEAD -> devlop) devlop-3
+* 9be07e4 (master) devlop-2
+* 436fb18 devlop-1
+* c7f7d92 quick-init
+* 3515c23 init
 
 
 [remote teamwork]
 
+$ git remote add team-bks https://github.com/workteam/books.git/
+$ git fetch team-bks
+
+# branch1. change directly on fetched branch
 $ git checkout bks/master
-...do some work, commit will fail and need to create new branch(based on bks/master) to store changes...
-$ git checkout -b remote-update
+...work, commit will fail and need to create new branch(based on bks/master) to store changes...
+$ git checkout -b s-fix
+# branch2. change directly on fetched branch
+$ git checkout s-fix bks/master
+# branch2. change directly on fetched branch if you know it's hash
+$ git checkout s-fix 653280
+
+$ git add hotfixfile.txt
+$ git diff --check
+$ git commit -m 'server fixed'
+
+branch 1: push s-fix branch to remote s-fix branch(remote auto creates s-fix branch if not exist)
+$ git push bks s-fix
+branch 2: push s-fix branch to serverfix branch on remote server(remote auto creates serverfix branch if not exist)
+$ git push bks s-fix:serverfix
+
+$ git branch -d serverfix
+...do more mod on serverfix on remote...
+$ git fetch bks
+$ git merge bks/serverfix
+
+branch 1: track remote
+$ git checkout --track bks/serverfix
+branch 2: track and set a different name
+$ git checkout -b sf bks/serverfix
+
+# change tracked branch
+$ git branch -u bks2/serverfix2
+$ git branch -vv 
+
+...do more mod on serverfix on remote...
+$ git pull
+# delete server-hot-fix branch on server
+$ git push bks2 --delete aonther-server-hot-fix 
 
 
+[Merging: rebase]
+
+# pull and rebase remote to master
+$ git pull --rebase
+
+$ git rebase master my-local-topic-branch
 
 
+[Merging: merge]
 
 
+[fork]
 
+# local repo: computer you're using
+# forked repo from original repo: https://github.com/myforkedrepo/books.git/
+# original repo: https://github.com/home/books.git/
+
+$ git clone https://github.com/home/books.git/
+$ git checkout -b featureA
+... work and commit...
+$ git remote add myfork https://github.com/myforkedrepo/books.git/
+$ git remote -v
+>>> 
+myfork   https://github.com/myforked/books.git (fetch)
+myfork   https://github.com/myforked/books.git (push)
+origin  https://github.com/home/books.git (fetch)
+origin  https://github.com/home/books.git (push)
+
+# step1.push local featureA branch to remote forked repos
+$ git push -u myfork featureA:remote-featureA
+# step2.request the original repo to pull from forked repo
+$ git request-pull origin/master myfork
+... email generated request pull to maintainer ...
+$ git fetch origin
 
 
 
