@@ -273,6 +273,9 @@ Long-Running Branches(development process)
 
 In reality, we’re talking about pointers moving up the line of commits you’re making.the line is with pointer pointing to different stability.
 
+$ git checkout master
+$ git merge 9be07e4  # merge hash/tag of development branch moves master node to the hash
+
 
 Remote Branches
 
@@ -458,6 +461,10 @@ $ git push local2 --delete serverfix  # 通常不用，it removes the pointer fr
 $ git checkout exp-branch
 $ git rebase master  
 
+$ git rebase --onto master server client
+// This basically says, “Take the **client** branch, figure out the patches since it diverged from the **server**
+branch, and replay these patches in the client branch as if it was based directly off the **master** branch instead.” It’s a bit complex, but the result is pretty cool
+
 the mechanism of rebasing:
 
 1. if exp-branch is deleted,then the nodes C3-C5(which relies on exp-branch) will also be deleted
@@ -604,29 +611,41 @@ developers can rebase on it.
 $ git diff --check ：检查出可能的空白符错误
 $ git add --patch ：会先比较文件修改前后的不同之处，再询问是否stage.
 
-$ git log --no-merges issue54..origin/master
+2点比较法：issue54..origin/master
 
 显式所有不在issue54上而在origin/master的commit，
 且不包含origin/master中merge节点的commit.
 
-- issue54在D,origin/master在L，commits如下
-	- commits：{A-L}
+$ git log --merges issue54..origin/master
+- 即选出合并的节点，结果为{H,K,N}
+
+$ git log --no-merges issue54..origin/master
+
+
+
+- issue54在C,origin/master在L，commits如下
+	- commits：{A-O}
 - 从2个分支分叉开始(不包含分叉节点),所有origin/master的commit
-	- commits：{D-L}
-- 包含其子分叉节点
+	- commits：{D-O}
+- 不包含合并的节点(master指向N,也不会包含).即使再分叉也不行
+	- commits：{H,K,N}
+- 包含分叉的节点
 	- commits：{E,F}
-- 不包含子merge节点.
-	- commits：{G,J}
+- 包含普通的节点
+	- commits：{DGIJLMO}
 - --no-merges issue54..origin/master结果为
-	- commits：{DEFHIKL}
+	- commits：{DEFG IJ LM O}
+
+
 
 exp: 图示
-
-		    F-G-H-J-K-L
-	       / /   / 
-	    D-E-F---I
-	   /
-	A-B-C
+                M-----N-O <- (master)
+               /     /
+            G-H-J-K-L 
+           / /   / 
+        D-E-F---I
+       /
+    A-B-C <- (issue54)
 
 ### Private Small Team
 
