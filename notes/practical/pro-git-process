@@ -78,6 +78,8 @@ $ git tag -a v1.0 412724 -m "my merged version"
 $ git show v1.0
 $ git tag -d v1.0
 
+# input name and password for the first time
+$ git config --global credential.helper cache. 
 $ git push bks master
 
 # if v1.9 is a remote tag, the following 2 ways to delete v1.9
@@ -99,29 +101,75 @@ $ git branch -d hotfix
 
 
 
-[basic development structure]
+[basic development structure ???]
 
 $ git init
 $ git commit -m initial-version
 $ git checkout -b development
-...do some work...
+...do some commits...
 $ git commit -m "development process 3"
 $ git checkout -b topic
-...do some work...
+...do some commits...
 $ git commit -m "unstable topic branch"
+
+* c4705fb (HEAD -> devlop) devlop-3
+* 9be07e4 devlop-2
+* 436fb18 devlop-1
+* c7f7d92 (master) quick-init
+* 3515c23 init
+$ git checkout master
+# git merge hash will merge to specified node
+$ git merge 9be07e4
+* c4705fb (HEAD -> devlop) devlop-3
+* 9be07e4 (master) devlop-2
+* 436fb18 devlop-1
+* c7f7d92 quick-init
+* 3515c23 init
 
 
 [remote teamwork]
 
+$ git remote add team-bks https://github.com/workteam/books.git/
+$ git fetch team-bks
 $ git checkout bks/master
 ...do some work, commit will fail and need to create new branch(based on bks/master) to store changes...
-$ git checkout -b remote-update
+$ git checkout -b remote-server-fix
+$ git add hotfixfile.txt
+$ git commit -m 'server fixed'
+branch 1: push to remote-server-fix branch on remote server
+$ git push bks remote-server-fix
+branch 2: push to serverfix branch on remote server
+$ git push bks remote-server-fix:serverfix
+
+$ git branch -d serverfix
+...do more mod on serverfix on remote...
+$ git fetch bks
+$ git merge bks/serverfix
+
+branch 1: track remote
+$ git checkout --track bks/serverfix
+branch 2: track and set a different name
+$ git checkout -b sf bks/serverfix
+
+# change tracked branch
+$ git branch -u bks2/serverfix2
+$ git branch -vv 
+
+...do more mod on serverfix on remote...
+$ git pull
+# delete server-hot-fix branch on server
+$ git push local2 --delete aonther-server-hot-fix 
 
 
+[Merging: rebase]
+
+# pull and rebase remote to master
+$ git pull --rebase
+
+$ git rebase master my-local-topic-branch
 
 
-
-
+[Merging: merge]
 
 
 
