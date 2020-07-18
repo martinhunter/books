@@ -639,6 +639,8 @@ $ git log --no-merges issue54..origin/master
 
 
 exp: 图示
+
+```
                 M-----N-O <- (master)
                /     /
             G-H-J-K-L 
@@ -646,6 +648,7 @@ exp: 图示
         D-E-F---I
        /
     A-B-C <- (issue54)
+```
 
 ### Private Small Team
 
