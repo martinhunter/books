@@ -104,7 +104,7 @@ exp:使用new创建二维数组
 
 NOTE: if A is static it will be on stack memory always!
 
-2.[delete](http://www.cplusplus.com/reference/new/operator%20delete[]/)的作用：用于deallocate指针所指向的内存块，释放new创建的存储空间并将指针地址设为无效。
+2.[delete](http://www.cplusplus.com/reference/new/operator%20delete[]/)的作用：用于deallocate指针所指向的内存块(而不删除指针本身)，释放new创建的存储空间并将指针地址设为无效。
 
 使用delete之后指针本身依然可被调用，因此需新赋值或设为nullptr以免出错。
 
@@ -369,8 +369,9 @@ ex: 创建及调用函数
 形式：FuncCopy为指向originalFunc的函数指针,调用方式与普通定义的函数相同。
 
 	定义函数:rtType originalFunc(parType1 par1, parType2 par2){}
-	定义函数指针：rtType (*FuncCopy)(parType1, parType2) = originalFunc;
-	调用：FuncCopy(arg1, arg2);
+	定义函数指针：rtType (*FuncPointer)(parType1, parType2) = originalFunc;
+    // 将originalFunc改为(*FuncPointer)，其他同originalFunc,在originalFunc前加不加&都没有影响
+	调用：FuncPointer(arg1, arg2);
 
 特性：函数指针可赋值，因此指向的函数可变，而普通函数不能赋值（只读）
 
@@ -381,36 +382,23 @@ exp: 创建函数指针
 	
 	int ch(double bil, int rr){
 	    cout << bil << " and " << rr << endl;
-	    return 32;
-	}
-
-	void f1()
-	{
-	    cout << 1 << endl;
-	}
-	
-	void f2()
-	{
-	    cout << 2 << endl;
-	}
-	
-	int main()
-	{
+	    return 32;}
+	void f1(){ cout << 13 << endl; }
+    void f2(){ cout << 26 << endl; }	
+	int main(){
 	    int (*pt)(double, int) = ch;
 	    int (*pt3)(double, int) = ch;
-		cout << ch << endl;
-	    cout << *ch << endl;
-	    cout << pt << endl;
-		cout << *pt << endl;
-	    cout << pt3 << endl;
-	    cout << *pt3 << endl;
-	    cout << pt3(2.2,4) << endl;
-
+		cout << ch << endl;  // >>> 1
+	    cout << *ch << endl;  // >>> 1 
+	    cout << pt << endl;  // >>> 1
+		cout << *pt << endl;  // >>> 1
+	    cout << pt3(2.2,4) << endl;  // >>> 32, 调用了ch()
+	    cout << "---seperator---" << endl;
 		void (*f3)() = f1;
-	    f3();
+	    f3();  // >>> 13
 		f2 = f1;  // 普通函数只读，因此报错
 	    f3 = f2;  // 函数指针可写/可进行赋值，不会报错
-	    f3();
+	    f3();  // >>> 26
 
 		return 0;
 	}
@@ -2035,14 +2023,15 @@ exp: 存在多个指向某一函数的指针有用
 	void oldName(int a){cout << a;}  // 原函数
 
 	// 不用typedef，noTypePtr为函数指针类型void (*)(int a)的变量
+    // oldName前的&仅为了告诉使用者这是一个函数指针，省略后对结果无影响
 
 	void (*noTypePtr)(int a) = &oldName;
 	void (*noTypePtr2)(int a) = &oldName;
 
 	// 使用typedef，将void (*)(int a)类型命名为FuncPtrType
-	typedef void (*FuncPtrType)(int a)
+	typedef void (*FuncPtrType)(int a);
 	FuncPtrType typedPtr = &oldName;
-	FuncPtrType typedPtrr2 = &oldName;
+	FuncPtrType typedPtr2 = &oldName;
 
 
 > C++中函数指针通常被virtual关键字代替
@@ -2864,26 +2853,50 @@ exp: 常见异常类型
 
 exp:中止未捕获的异常前输出有效信息
 
+    #include <iostream>
+	using namespace std;
+
+	/*  
+    // terminate_handler,set_terminate的定义大致如下
+	typedef void (*terminate_handler)();
+	void default_handler();  // 前置声明
+	terminate_handler handler = default_handler;
+
+	terminate_handler set_terminate(terminate_handler func)
+	{
+		terminate_handler temp_prev = handler;
+		handler = func;
+		return temp_prev;
+	}
+	// default_handler为默认的回调函数，无返回值
+	void default_handler(){ 
+		// cout << " default handler " << endl;
+        abort();
+		// some real handling work
+	}
+	*/
+
 	void myTerminate()
 	{
 		cout << "some more info" << endl;
 		exit(1);  // 使用exit中止程序
 	}
-	// 将terminate_handler指向新handler函数myTerminate，并保存旧handler
-	// void (*prevTerminate)() = set_terminate(myTerminate); 2者皆可
-	terminate_handler prevTerminate = set_terminate(myTerminate);
+    int main(int argc, char *argv[]){
+	    // void (*prevTerminate)() = set_terminate(myTerminate); 2者皆可
+	    terminate_handler prevTerminate = set_terminate(myTerminate);
 
-	
-	try {
-		main(argc,argv);
-	} catch (...) {
-		if (terminate_handler != nullptr) {
-			// 有handler则用terminate_handler函数中止程序
-			terminate_handler();
-		} else {
-			terminate();
-		}
-	}
+	    // terminate的运行原理(高度概括)
+	    try {
+	    	main(argc,argv);
+    	} catch (...) {
+	    	if (terminate_handler != nullptr) {
+			    // 有handler则用terminate_handler函数中止程序
+		    	terminate_handler();
+		    } else {
+		    	terminate();
+	    	}
+	    }
+    }
 	set_terminate(prevTerminater); // 需要myTerminate处理异常的代码段结束后将terminate_handler设为prevTerminater
 	someOtherCode；
 	
@@ -5043,7 +5056,7 @@ exp: is_integral的定义及使用
     x(3);
     
 > operator的特殊形式:operator someType()
-作用:typeid(instance)依然为Cell,但cout<< instance,instance+3(除了instace.val)等对instance调用的操作,都会调用operator someType(),并使用其返回值进行操作
+作用:typeid(instance)依然为Cell类,但cout<< instance,instance+3(除了instace.val)等对instance调用的操作,都会调用operator someType(),并使用其返回值进行操作
 
     template<typename T>
     class Cell{
@@ -5054,12 +5067,80 @@ exp: is_integral的定义及使用
     Cell instance;
     cout << instance;  // instance的值为4
 
-typedef 
+#### 使用类型关系
 
+is_same,is_base_of,is_convertible
 
+#### enable_if
+NOTE:替换失败不是错误(substitution failure is not an error,SFINAE)
 
+exp:SFINAE
 
-mark pg.608
+    #include <iostream>
+    #include <string>
+    #include <type_traits>
+    using namespace std;
+
+    template<typename T1, typename T2>
+    // second param of enable_if is return type of check_type
+    // and it will check
+    typename enable_if<is_same<T1,T2>::value, bool>::type  
+    check_type(const T1& t1, const T2& t2){
+        cout << t1 << " and " << t2 
+        << " have the same type" << endl;
+        return true;
+    }
+    template<typename T1, typename T2>
+    typename enable_if<!is_same<T1,T2>::value, bool>::type  
+    check_type(const T1& t1, const T2& t2){
+        cout << t1 << " and " << t2 
+        << " are different types" << endl;
+        return False;
+    }
+
+    int main(){
+        check_type(1,32); 
+        check_type(1,32.5); 
+        return 0;
+    }
+
+compiler process of `check_type(1,32.5);`(mechanism)
+
+1. compiler寻找接受int,double的check_type(),未果
+1. compilter寻找第一个check_type()函数模板重载,
+1. 将T1设为int,T2设为double
+1. compiler尝试确定返回类型,调用typename enable_if<is_same<T1,T2>::value, bool>::type
+1. is_same<T1,T2>::value返回False,enable_if<false,bool>::type失败/编译错误
+1. *SFINAE*起效，编译器先不报错，而是尝试替换
+1. compiler回溯并尝试找到另一个check_Type()
+1. 尝试确定返回值类型，调用typename enable_if<!is_same<T1,T2>::value, bool>::type
+1. !is_same<T1,T2>::value return True, enable_if<false,bool>::type编译成功
+
+enable_if用于构造函数，需将第二个参数设为void
+enable_if仅在解析重载歧义时使用(如memcpy(),使用enable_if和trivially_copyable),即无法用特例化，部分特例化等解析重载歧义时使用。
+
+NOTE:使用SFINAE和enable_if禁用重载集中的错误重载，会得到奇怪的编译错误
+
+### SUMMARY of template meta programming
+
+一切发生在编译时，不能通过调试器定位问题，需要添加准确的注释
+
+# 内存管理
+
+内存泄漏/孤立:堆中的数据块无法从栈中直接或间接访问
+
+new vs malloc(), delete vs free()
+
+new不仅分配内存(同malloc),还构建对象(malloc不会)
+free()不调用对象的析构函数，只是说myFoo指向的空间不再被占据
+
+class Foo{};
+Foo* myFoo = (Foo*)malloc(sizeof(Foo));  // 只分配内存空间，并强制转换类型，可访问成员，但未调用构造函数，不会初始化成员
+Foo* myOtherFoo = new Foo();  // 调用构造函数
+
+NOTE:C++不使用malloc(),free()
+
+mark pg.616
 
 
 

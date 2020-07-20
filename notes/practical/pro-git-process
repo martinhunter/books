@@ -106,7 +106,9 @@ $ git tag -d v1.0
 
 # input name and password for the first time
 $ git config --global credential.helper cache. 
-$ git push bks master
+$ git push -u bks master
+# fetch when anyone pushed(including yourself)
+$ git fetch 
 
 # if v1.9 is a remote tag, there're 2 ways to delete v1.9
 $ git push bks :refs/tags/v1.9
@@ -224,6 +226,11 @@ myfork   https://github.com/myforked/books.git (fetch)
 myfork   https://github.com/myforked/books.git (push)
 origin  https://github.com/home/books.git (fetch)
 origin  https://github.com/home/books.git (push)
+
+$ git checkout -b localFeatureB
+... work and commit a lot of times ...
+$ git checkout -b featureBv2 origin/master
+$ git merge --squash localFeatureB
 
 # step1.push local featureA branch to remote forked repos
 $ git push -u myfork featureA:remote-featureA
