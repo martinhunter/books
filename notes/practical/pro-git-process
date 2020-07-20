@@ -207,6 +207,15 @@ $ git pull --rebase
 $ git rebase master my-local-topic-branch
 
 
+[Merging: squash]
+
+$ git checkout -b featureBv2 origin/master
+$ git merge --squash featureB
+... change implementation ...
+$ git commit
+$ git push myfork featureBv2
+
+
 [Merging: merge]
 
 
@@ -239,6 +248,10 @@ $ git request-pull origin/master myfork
 ... email generated request pull to maintainer ...
 $ git fetch origin
 
+[email patch]
+
+[compare local and remote branches]
+$ git log contrib-br --not master  # --not will exclude master commits,works the same as master..contrib-br
 
 
 
