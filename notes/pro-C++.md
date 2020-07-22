@@ -2828,21 +2828,21 @@ try/catch：是处理异常的结构，捕捉throw的异常类型
 
 exp: 常见异常类型
 
-	} catch {...) { // 用三个点匹配所有异常
+	} catch (...) { // 用三个点匹配所有异常
 
 	throw runtime_error("deco error");
-	} catch {const exception& e) {  // runtime_error继承exception类
+	} catch (const exception& e) {  // runtime_error继承exception类
 		cerr << e.what() << endl;
 	}
 	
 	throw invalid_argument("wrong arguments");
-	} catch {const invalid_argument& e) {
+	} catch (const invalid_argument& e) {
 	
 	throw 5;
-	} catch {int e) {
+	} catch (int e) {
 	
 	throw "fail open";
-	} catch {const char* e) {
+	} catch (const char* e) {
 
 建议将对象作为异常抛出：
 
@@ -2905,7 +2905,7 @@ exp:中止未捕获的异常前输出有效信息
 形式：rtType func(args) throw(exception1,exception2,...) { body; }
 
 标记为noexcept的函数抛出异常时，C++调用terminate()中止程序。
-函数抛出不再抛出列表中的异常时，C++调用unexpected(),内建的unexpected()调用terminate()
+函数抛出不在抛出列表中的异常时，C++调用unexpected(),内建的unexpected()调用terminate()
 
 exp: C++11后已被废弃,throw()替换为noexcept(C++14也在继续使用)则不会抛出异常
 
@@ -5398,12 +5398,307 @@ int main(){
 - 撕裂:仅部分数据已写入内存，另一线程读取，获取不到需要的完整数据
 - 缓存的一致性:由于cpu的缓存结构存在，一个核心修改了数据，它的缓存like改变，但不会立即同步到使用另一缓存的核心
 
+exp:通过函数创建线程,传入函数及其参数(长度可变)
 
-mark pg.616
+    #include <iostream>
+    #include <thread>
+    using namespace std;
+    int main(){
+    	thread t1([](int s){cout << "tt" << endl;}, 33);
+    	thread t2([](double s, int r){cout << "kkkk" << endl;}, 3.2,4);
+        // 使用join阻塞主线程，直到t1,t2执行结束，不推荐
+    	t1.join();
+    	t2.join();
+    	return 0;
+    }
+
+通过函数对象创建线程,重载operator()(),建议使用{}创建实例:thread t3(Ct{1,3})
+
+NOTE:函数对象总是复制到线程的某个内部存储中，<functional>的thread t3(std::ref(instance))来引用而阻止复制
+
+exp: 通过成员函数创建线程，传入成员函数和实例对象(如此可传入不同实例调用同一方法)
+
+    #include <iostream>
+    #include <thread>
+    using namespace std;
+    
+    class Request{
+    public:
+    	Request(int id):mId(id){}
+    	void process(){
+    		cout << "process: " << mId << endl;
+    	}
+    private:
+    	int mId;
+    };
+    
+    int main(){
+    	Request req(100);
+    	thread t1{ &Request::process, &req};
+    	t1.join();
+    	return 0;
+    }
+
+### thread_local(线程本地存储)
+
+线程本地数据(变量):每个线程都有这个变量的独立副本(仅初始化一次)，变量在线程整个生命周期中持续存在
+// k唯一，被所有线程共享，n则是每个线程都创建一个n的副本
+thread_local int n;
+int k;
+// thread_local在函数作用域中声明，行为和静态变量相同
+
+取消线程：标准没有一个线程直接取消另一个线程的机制
+为2个线程提供某种通信机制，(如共享变量),目标线程定期检查变量，判断是否终止，其他线程可设置这个共享变量
+
+### 多线程异常
+
+异常只在线程内被捕捉，其他线程无法捕获
+
+<exception>定义了:
+
+    exception_ptr current_exception() noexcept;
+    
+    template<class E>
+    exception_ptr make_exception_ptr(E e) noexcept;
+    等价于
+    try {
+        throw e;
+    } catch(...) {
+        return current_exception();
+    }
+    
+    [[noreturn]] void rethrow_exception(exception_ptr p);
+
+exp: 捕捉内部线程的exception
+
+    #include <iostream>
+	#include <thread>
+	#include <functional>
+	#include <exception>
+	using namespace std;
+
+	void doSome(){
+		for (int i = 0; i < 5; ++i) {
+			cout << i << endl;
+		}
+		cout << "ex" << endl;
+		throw runtime_error("exception");
+	}
+
+	void cat(exception_ptr& err){
+		try {
+			doSome();
+		} catch (...) {
+			cout << "exp caught" << endl;
+            // 若有错误，则返回的err不为空，主线程就可进行处理
+			err = current_exception();
+		}
+	}
+
+	void workThread() {
+		exception_ptr error;
+		thread t{ cat, ref(error)};
+		t.join();
+		if (error) {
+			cout << "main thread caught exception" << endl;
+            // 捕捉到错误，重新抛出异常
+			rethrow_exception(error);
+		} else {
+			cout << "main thread got no exception" << endl;
+		}
+	}
 
 
+	int main(){
+		try {
+			workThread();
+		} catch (const exception& e) {
+			cout << "main func caught: " << e.what() << endl;
+		}
+		return 0;
+	}
 
+### 原子操作库
 
+    
+原子类型允许原子访问，不需额外的同步机制就可执行并发的读写操作。
+解决缓存一致性，内存排序，编译器优化等问题
+
+#include <atomic>
+atomic<int> counter(0);
+++counter;
+
+exp: 非原子操作引起问题，缓存未同步，部分++counter使用了旧缓存
+
+    #include <iostream>
+	#include <thread>
+	#include <vector>
+
+	using namespace std;
+
+	void func(int& counter)
+	{
+		for (int i = 0; i< 100;++i){
+			++counter;
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
+	}
+
+	int main(){
+		int counter = 0;
+		std::vector<std::thread> threads;
+		for (int i = 0; i < 10; ++i) {
+			threads.push_back(std::thread { func, std::ref(counter)});
+		}
+		for (auto& t : threads) {
+			t.join();
+		}
+		std::cout << "Result=" << counter << std::endl;
+		return 0;
+	}
+
+### 原子操作
+
+bool atomic_compare_exchange_strong(atomic<C>* object, C* expected, C desired);
+bool atomic<C>::compare_exchange_strong(C* expected, C desired);
+if (*object == *expected) {
+    *object = desired;
+    return true;
+} else {
+    *expected = *object;
+    return false;
+}
+
+支持+=,fetch_add,++等，不支持=,-
+atomic<int> value(10);
+cout << "Value = " << value << endl;
+int fetched = value.fetch_add(4,memory_order=memory_order_seq_cst);
+cout << "Fetched = " << fetched << endl;
+cout << "Value = " << value << endl;
+
+### 互斥
+
+形式：
+- mutex(互斥体)类，分定时（阻塞直到预定时间）和不定时（可能始终阻塞）
+- lock(锁)类
+
+### std::call_once
+
+exp: std::call_once(),std::once_flag确保函数只调用一次，其他线程都阻塞直到此函数运行完成
+    // template<typename _Callable, typename... _Args>
+    // void call_once(once_flag& __once, _Callable&& __f, _Args&&... __args);
+    #include <iostream>
+    #include <thread>
+    #include <vector>
+    #include <mutex>
+    using namespace std;
+    
+    once_flag flg;
+    void initShared(){
+    	cout << "initialize only once " << endl;
+    }
+    void processingFunc(){
+    	call_once(flg, initShared);
+    	cout << "processing" << endl;
+    }
+    
+    int main(){
+    	std::vector<thread> threads(3);
+    	for (auto& t : threads) {
+    		t = thread{processingFunc};
+    	}
+    	for (auto& t : threads) {
+    		t.join();
+    	}
+    	return 0;
+    }
+
+exp: 几种锁定方式
+
+    // 不定时锁
+    class Counter{
+    public:
+    	Counter(int id, int iterTimes)
+    	:mId(id),mIterTimes(iterTimes){}
+    	void operator()() const {
+    		for (int i = 0; i < mIterTimes; ++i) {
+    			// 每次创建lock_guard<mutex>类的实例，获得mMutex上的锁
+    			// 确保同时只有一个线程读写流对象
+    			lock_guard<mutex> lock(mMutex);
+    			cout << "Counter " << mId << " is " << i << endl;
+    		}
+    	}
+    private:
+    	int mId;
+    	int mIterTimes;
+    	static mutex mMutex;
+    };
+    mutex Counter::mMutex;
+
+    // 定时锁
+    class Counter{
+    public:
+        Counter(int id, int iterTimes)
+        :mId(id),mIterTimes(iterTimes){}
+        void operator()() const {
+            for (int i = 0; i < mIterTimes; ++i) {
+                // 每次创建lock_guard<mutex>类的实例，获得mMutex上的锁
+                // 确保同时只有一个线程读写流对象
+                unique_lock<timed_mutex> lock(mTimedMutex,std::chrono::milliseconds(200));
+                if (lock) {
+                    cout << "Counter " << mId << " is " << i << endl;
+                } else {}
+            }
+        }
+    private:
+        int mId;
+        int mIterTimes;
+        static timed_mutex mTimedMutex;
+    };
+    timed_mutex Counter::mTimedMutex;
+
+双重检查锁定：确保变量初始化一次，获得锁前和后都检查initialized变量值，共2次。
+第一次检查防止获得不需要的锁，提升性能，
+第二次检查确保没有其他线程在第一次initialized检查和获得锁之间执行初始化
+
+    #include <iostream>
+    #include <thread>
+    #include <vector>
+    #include <mutex>
+    #include <atomic>
+    using namespace std;
+    void initShared(){
+    	cout << "initialize only once " << endl;
+    }
+    atomic<bool> initialized(false);
+    mutex mut;
+    void func(){
+    	if (!initialized) {
+        // 第一次检查，创建锁
+    		unique_lock<mutex> lock(mut);
+    		if (!initialized) {
+            // 第二次检查，initialized依然为false，负责说明有其他线程已经执行了initialized=true;
+    			initShared();
+    			initialized = true;
+    		}
+    	}
+    	// something multi thread will do
+    	cout << "OK" << endl;
+    }
+    int main(){
+    	std::vector<thread> threads(3);
+    	for (auto& t : threads) {
+    		t = thread{func};
+    	}
+    	for (auto& t : threads) {
+    		t.join();
+    	}
+    	return 0;
+    }
+
+### 变量条件
+
+mark pg.665
 
 
 
