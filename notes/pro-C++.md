@@ -350,6 +350,8 @@ int && pt = value
 
 > cout所有func，\*func（包括函数指针(\*func) ）的值都为1
 
+函数，设置默认值的参数要放到最后
+
 形式：
 
 	定义：returnType funcName(paramType param){body; return someValue;}
@@ -792,13 +794,14 @@ exp： 定义不同构造函数产生的影响
 
 ## 类的5大函数
 
-- 析构函数（destructor）
+- 析构函数（destructor) 所有类必须有，其他几个函数可=delete
+
 - 拷贝构造函数（[copy constructor](https://en.cppreference.com/w/cpp/language/copy_constructor)）
 - 移动构造函数（move constructor）
 - 拷贝赋值运算符（copy assignment operator)
 - 移动赋值运算符（move assignment operator)
 
-
+> 有动态分配的内存时(new),需提供以上的函数
 
 exp:一个包含5大函数的类
 
@@ -855,7 +858,7 @@ exp:一个包含5大函数的类
 		return 0;
 	}
 
-exp: 一个包含5大函数的类
+exp: 另一个包含5大函数的类
 
 	#include <iostream>
 	#include <string>
