@@ -5231,7 +5231,7 @@ exp: 如果调用方法指针(一般不会用到)
 	int main(){
 		Cell myCell(124);
         // 上下文中解除引用
-		double (Cell::*ptr) (int s) const = &Cell::getValue;  // 不像普通函数指针,这里必须使用&
+		double (Cell::*ptr) (int s) const = &Cell::getValue;  // 不像普通函数指针,方法指针必须使用&
         // 通过对象调用非静态方法
 		cout << (myCell.*ptr)(31) << endl;
 
@@ -5696,7 +5696,961 @@ exp: 几种锁定方式
     	return 0;
     }
 
-### 变量条件
+### 变量条件 (在<condition_cariable>头文件中)
+
+std::condition_variable 只能等待unique_lock<mutex>的条件变量
+std::condition_variable 可等待任何对象的条件变量，包括自定义锁
+
+支持的方法：
+notify_one() 唤醒一个等待此条件变量的线程，类似windows的auto-rest
+notify_all() 唤醒等待此条件变量的所有线程
+wait(unique_lock<mutex>& lk)
+
+exp: 使用条件变量
+
+    #include <iostream>
+	#include <thread>
+	#include <queue>
+	#include <vector>
+	#include <mutex>
+	#include <atomic>
+	#include <fstream>
+	#include <sstream>
+	#include <atomic>
+	#include <condition_variable>
+	using namespace std;
+
+	class Logger{
+	public:
+		Logger();
+		virtual ~Logger();
+		Logger(const Logger& src) = delete;
+		Logger& operator=(const Logger& rhs) = delete;
+		void log(const std::string& entry);
+
+	private:
+		std::atomic<bool> mExit;
+		void processEntries();
+		std::mutex mMutex;
+		std::condition_variable mCondVar;
+		std::queue<std::string> mQueue;
+		std::thread mThread;
+	};
+
+	Logger::Logger() : mExit(false) {
+		mThread = thread{ &Logger::processEntries, this};
+	}
+	Logger::~Logger(){
+		{
+			unique_lock<mutex> lock(mMutex);
+			mExit= true;
+			mCondVar.notify_all();
+		}
+		mThread.join();
+	}
+	void Logger::log(const std::string& entry){
+		unique_lock<mutex> lock(mMutex);
+		mQueue.push(entry);
+		mCondVar.notify_all();
+	}
+	void Logger::processEntries(){
+		ofstream ofs("log.txt");
+		if (ofs.fail()){
+			cerr << "fail to open" << endl;
+			return;
+		}
+		unique_lock<mutex> lock(mMutex);
+		while (true) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			if (!mExit) mCondVar.wait(lock);
+			lock.unlock();
+			while (true){
+				lock.lock();
+				if (mQueue.empty()){
+					break;
+				} else {
+					ofs << mQueue.front() << endl;
+					mQueue.pop();
+				}
+				lock.unlock();
+			}
+			if (mExit){
+				break;
+			}
+		}
+	}
+
+	void logMessage(int id, Logger& logger) {
+		for (int i=0; i < 10; ++i) {
+			stringstream ss;
+			ss << "log entry " << i << " from thread" << id;
+			logger.log(ss.str());
+		}
+	}
+
+	int main(){
+		Logger logger;
+		std::vector<thread> threads;
+		for (int i=0; i < 10; ++i) {
+			threads.emplace_back(logMessage, i, ref(logger));
+		}
+		for (auto& t : threads) {
+				t.join();
+		}
+		cout << "over";
+		return 0;
+	}
+
+### 线程池
+
+不动态创建和删除线程，程序预先创建好一定数量的线程，可用如Intel Threading Building Blocks(TBB),Microsoft Parallel Patterns(PPL)库等实现。
+
+## 线程总结
+
+终止程序前，使用join()等待后台线程执行完毕：确保后台线程都有时间进行清理(析构)，避免主线程终止时后台线程也终止
+最好没有同步：应当使线程使用共享数据时只能读取，没有写入，或者只写入其他线程不读取的部分
+使用单线程的所有权模式：同一时间拥有一个数据块的线程为1，阻止其他线程读写，处理完成后在交给其他线程
+使用原子类型和操作：能自动处理同步，不用处理死锁和竞争条件。
+使用锁保护可变的共享数据：不能使用原子类型时使用
+尽快释放锁
+确保按统一顺序获得多个锁：所有线程以同样顺序获得多个锁，可避免死锁
+使用支持多线程的分析器：分析性能瓶颈
+了解调试器的多线程支持特性：需要能得到程序中运行的线程列表，并查看线程的调用栈
+使用线程池：动态创建/销毁线程会导致性能下降
+使用高级多线程库：TBB，PPL
+
+
+# 软件开发过程
+
+## 生命周期模型
+
+分段模型(stagewise model):按步骤构建
+规划->设计->实现->单元测试->子系统测试->整合测试->评估
+缺点：实际无法完全分离
+
+瀑布模型（waterfall model）（从分段模型改进）：将以上分段模型的箭头改为双向<->
+优点：简洁，易于管理。规划是详尽列出所有不需的功能，后续可顺利进行
+缺点：不允许大步后退，不够动态。前期设计可能隐藏了巨大风险，导致发现时已晚，难以修正
+
+螺旋模型（spiral model，1988）：风险驱动
+基本思想：出错也没关系，下一轮修复。4个步骤迭代
+开发->分析->发现->评估->开发->分析->发现->评估->开发->分析->发现->评估
+开发：产生规划，包含产品的主要需求
+分析：得到战士用户体验的原型
+发现：构建一个呗认定是高风险的组件
+特点：重视在评估阶段中风险的评估和解决
+
+优点：解决了瀑布模型的隐藏风险问题与难以回溯的问题
+缺点：难以将每次迭代的范围界定的足够小，以获得真正的好处。且迭代次数过多就会退化为瀑布模型。
+多次迭代增加开销，不同周期协调困难（各团队开发周期不同步）
+
+rational unified process:是一个软件产品，而不仅是理论的过程模型
+
+- 过程本身和软件一样更新和完善
+- 提出开发框架及使用此框架的软件工具
+- 可部署在整个团队，要求所有成员使用相同的过程和工具
+- 可以定制，以满足用户的需求
+
+原则：开发周期每次迭代应有一个有形的成果，过程中，用户创建很多设计，需求文档报告和计划
+核心原则：定义精确模型，同一件欧美语言(UML)进行格式描述
+
+## 软件工程方法学
+[敏捷(agile methodology)](heep://agilemanifesto.org/):灵活地加入新需求
+Scrum：指导了敏捷的实现
+Scrum迭代周期称为sprint(为期2-4星期)，每个sprint周期结束，目标是有完全可用且经过测试的版本。并提供给客户，让其反馈
+
+### 角色
+PO(product owner):根据用户的描述编写多个高层次的用户需求，并设置其优先级，置入scum的产品需求总表。PO可以决定要留下/实现哪些
+SM(Scrum Master)负责过程运行，但不能是团队领导，联络各团队，确保团队正确遵循Scrum过程
+Group团队本身：团队最好不要多于10人
+
+### 过程：
+强制每日例会(需少于15分钟),每个成员回答：
+- 昨天到今天做了什么
+- 今天准备做什么
+- 要做这个会遇到哪些问题，SM需注意这些问题
+
+每个sprint周期前开会：
+决定需事先什么产品特性，记录在sprint需求总表中，直到此周期结束
+
+每个sprint周期后开会：
+确定已完成，未完成及原因，使用demo展示成果
+
+Billboard:To do, In progress, Done
+
+Scrum优点：弹性处理不可预知的问题
+缺点：
+- 成员从billboard自行挑选任务，而不是通过经理或团队管理者分配
+- SM对团队的信任非常重要，不能过紧
+- 特性蠕动(feature creep),新特性过多，必须制定最终日期
+
+### 极限编程(extreme programming, 1999)
+
+编写代码前编写自动化测试
+
+特点：
+最初粗略计划，然后随时计划
+2个月（而不是18个月）发布小版本，而不发布设计核心变化和大量发布说明文档的大版本。最终只有最重要的功能进入产品
+metaphor:所有尘缘对系统有共同的高层次看法（系统组件的心理模型），用隐喻推进共享的词汇表。
+简化设计：避免任意的通用性。修改等到以后
+不断测试，单元测试是一小块代码，确保独立的功能正常工作。测试足够完善，所有测试都能通过
+必要时重构：识别准备好重构的代码的迹象
+结对编程：2人同时编写，一人编写，一人(可能是已有开发软件专精者)思考高层次的方法（如测试，必要的重构和项目整体模型等）
+共享代码：集体都对代码有所认识
+不断整合：频繁地整合及测试
+正常工作的小时数：确保清醒的头脑
+客户在场：由于值构建当前必要的功能，客户可提供有价值的建议与沟通，并让开发者迅速开发成型
+共同的编码标准：不能有人明显不同的编码标准
+
+### 软件分流(software triage,2003)
+
+项目处于极其糟糕的状态：将剩下的功能组织为`必须有`,`应该有`,`可以有`的列表，以保证按时完成项目
+
+### 构建自己的过程和方法
+
+项目结束后进行评估，其中是否有重大问题。考虑什么方法行得通，什么行不通
+建立代码审查的技术，如只审查接口
+
+不要逃避问题
+
+# 高效的C++
+
+高效率：尽快完成指定任务，而非无用功
+
+提升效率：1. 按引用传递。2.设计层次的效率，如高效的算法，避免不需要的步骤
+
+普通程序（非计算密集型，非实时游戏，非系统级软件，非嵌入式系统），不用时间做优化
+
+语言的效率：语言的性能，编译器优化
+
+NOTE:应当仅优化分析器标记为性能瓶颈的部分
+
+### 高效地操纵对象
+- 按引用传递
+- 按引用返回（但不能返回局部对象的引用，此时使用移动语义）
+- 按引用捕捉异常
+- 使用移动语义
+- 避免创建临时的无名对象：代码需要在较大的表达式中将一个类型的变量转化为另一类型时，编译器都会构造临时对象。主要适用于函数调用，即传入的实参类型与形参(可能是一个类对象)不同，就会将实参强制转换。有事不可避免，但是要记得这个开销
+- 返回值优化：通过值返回对象的函数可能会创建一个临时对象，即调用此函数但不将其赋值给变量。通常编译器会优化它。仅在发布版本中启用。
+- 使用内联方法和函数，标记为inline，编译器也会自动优化部分
+
+### 设计层次的效率
+- 选择优秀的算法，数据结构（STL，Boost库），融入多线程
+- 尽可能多的缓存:
+  - 磁盘访问：避免多次打开读取同一文件。应尽量将内容保存在内存中
+  - 网络通信：当成文件访问，尽可能缓存静态信息
+  - 数学计算：复杂计算结果，尽量只执行一次计算并共享。不复杂，进行计算可能比从缓存中提取更快（使用分析器分析）。
+  - 对象分配：程序需要大量创建和使用短期对象，使用对象池
+  - 线程创建：将线程缓存在线程池中
+- 缓存失效：
+保存的数据往往是底层信息的一个副本，在缓存的生命周期中，原始数据可能发生变化（如获取缓存配置文件中的值，但配置文件被修改）。`缓存失效机制`，确保停止使用缓存的信息并读取新信息填入缓存。
+实现缓存失效：要求管理底层数据的实体通吃程序数据变化。通过程序在管理器中注册一个回调实现。程序可轮询某些出发自动重新填充缓存的时间。
+NOTE：维护缓存需要编码，内存，处理时间。可能会产生难以查找的bug，因此仅在分析器清晰地说明性能瓶颈的部分添加缓存。
+
+### 对象池
+
+大量同类型的短期对象，构造函数的开销很大。这些对象的内存分配和释放是瓶颈。
+对象池值创建一次对象，因此对象的构造函数只调用一次
+适用：构造函数需要为很多对象进行一些设置操作的情况。通过构造函数外的方法调用为对象设置一些实例特有的参数
+
+exp: 创建对象池
+    #include <cstddef>
+    #include <queue>
+    #include <stdexcept>
+    #include <memory>
+    
+    using namespace std;
+    
+    template <typename T>
+    class ObjectPool
+    {
+    public:
+        ObjectPool(size_t chunkSize = kDefaultChunkSize);
+        ObjectPool(const ObjectPool<T>& src) = delete;
+        ObjectPool<T>& operator=(const ObjectPool<T>& rhs) = delete;
+        using Object = std::shared_ptr<T>;
+        Object acquireObject();
+    
+    private:
+        std::queue<std::unique_ptr<T> > mFreeList;
+        size_t mChunkSize;
+        static const size_t kDefaultChunkSize = 10;
+        void allocateChunk();
+    };
+    
+    template <typename T>
+    ObjectPool<T>::ObjectPool(size_t chunkSize)
+    {
+        if (chunkSize <= 0) {
+            throw std::invalid_argument("chunk size must be positive");
+        }
+        mChunkSize = chunkSize;
+        allocateChunk();
+    }
+    template <typename T>
+    void ObjectPool<T>::allocateChunk()
+    {
+        for (size_t i = 0; i < mChunkSize; ++i) {
+            // create pointer
+            mFreeList.emplace(std::make_unique<T>());
+        }
+    }
+    template <typename T>
+    // typename ObjectPool<T>::Object declares that Object is a type
+    typename ObjectPool<T>::Object ObjectPool<T>::acquireObject()
+    {
+        if (mFreeList.empty()) {
+            allocateChunk();
+        }
+        // create pointer named obj from freelist
+        std::unique_ptr<T> obj(std::move(mFreeList.front()));
+        mFreeList.pop();
+        // now in namespace ObjectPool<T>::,use Object directely
+        Object smartObject(obj.release(),
+                           [this](T* t) {
+                               mFreeList.push(std::unique_ptr<T>(t));
+                           }
+        );
+        return smartObject;
+    }
+    
+    class UserRequest{
+    public:
+        UserRequest() {}
+        virtual ~UserRequest() {}
+    private:
+        // not shown
+    };
+    
+    ObjectPool<UserRequest>::Object obtainUserRequest(ObjectPool<UserRequest>& pool){
+        auto request = pool.acquireObject();
+        return request;
+    }
+    void processUserRequest(ObjectPool<UserRequest>::Object& req)
+    {
+        req.reset();
+    }
+    
+    int main()
+    {
+        ObjectPool<UserRequest> requestPool(10);
+        for (size_t i = 0; i < 100; ++i) {
+            auto req = obtainUserRequest(requestPool);
+            processUserRequest(req);
+        }
+        return 0;
+    }
+       
+
+
+
+### 90/10法则
+> 大部分程序90%的时间执行10%的代码，优化90%的代码，程序运行只改进10%。需要优化在典型负载下程序运行最多的代码
+
+### 性能剖析器
+fee
+rational purifyplus(from IBM)
+free
+on windows:very sleepy,luke stackwalker,vc++
+on linux: valgrind,gprof
+
+exp: a database
+
+    // NamBD.h
+    #include <string>
+	#include <vector>
+	#include <utility>
+
+	class NameDB{
+	public:
+		NameDB(const std::string& nameFile);
+		int getNameRank(const std::string& name) const;
+		int getAbsoluteNumber(const std::string& name) const;
+	private:
+		std::vector<std::pair<std::string,int> >mNames;
+		bool nameExists(const std::string& name) const;
+		void incrementNameCount(const std::string& name);
+		void addNewName(const std::string& name);
+	};
+
+	#include <iostream>
+	#include <fstream>
+	using namespace std;
+
+	NameDB::NameDB(const string& nameFile)
+	{
+		ifstream inFile(nameFile.c_str());
+		if (!inFile) {
+			throw invalid_argument("Unable to open file");
+		}
+		string name;
+		while (inFile >> name) {
+			if (nameExists(name)) {
+				incrementNameCount(name);
+			} else {
+				addNewName(name);
+			}
+		}
+		inFile.close();
+	}
+
+	int NameDB::getNameRank(const std::string& name) const
+	{
+		int num = getAbsoluteNumber(name);
+		if (num == -1) {
+			return -1;
+		}
+		int rank = 1;
+		for (auto& entry : mNames) {
+			if (entry.second > num) {
+				rank++;
+			}
+		}
+		return rank;
+	}
+
+	int NameDB::getAbsoluteNumber(const std::string& name) const
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				return entry.second;
+			}
+		}
+		return -1;
+	}
+
+
+	// private
+	bool NameDB::nameExists(const std::string& name) const
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				return true;
+			}
+		}
+		return false;
+	}
+	void NameDB::incrementNameCount(const std::string& name)
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				entry.second++;
+				return;
+			}
+		}
+	}
+	void NameDB::addNewName(const std::string& name)
+	{
+		mNames.push_back(make_pair(name, 1));
+	}
+
+
+    NameDBtest.h
+    #include "NameDB.h"
+    #include <iostream>
+	int main()
+	{
+		NameDB boys("boys_long.txt");
+		cout << boys.getNameRank("Daniel") << endl;
+		cout << boys.getAbsoluteNumber("Jacob") << endl;
+		cout << boys.getNameRank("William") << endl;
+		return 0;
+	}
+
+use gprof:
+
+1. gcc -lstdc++ -std=c++11 -pg -o NameDB.cpp NameDBtest.cpp
+1. 运行程序，生成gmon.out
+1. gprof namedb gmon.out > gprof_analysis.out  // 输出重定向到文件
+
+exp: after improvement
+
+    #include <string>
+	#include <map>
+
+	class NameDB{
+	public:
+		NameDB(const std::string& nameFile);
+		int getNameRank(const std::string& name) const;
+		int getAbsoluteNumber(const std::string& name) const;
+	private:
+		std::map<std::string, int> mNames;
+		bool nameExistsAndIncrement(const std::string& name);
+		void addNewName(const std::string& name);
+	};
+
+	#include <iostream>
+	#include <fstream>
+	using namespace std;
+
+	NameDB::NameDB(const string& nameFile)
+	{
+		ifstream inFile(nameFile.c_str());
+		if (!inFile) {
+			throw invalid_argument("Unable to open file");
+		}
+		string name;
+		while (inFile >> name) {
+			if (!nameExistsAndIncrement(name)) {
+				addNewName(name);
+			}
+		}
+		inFile.close();
+	}
+
+	int NameDB::getNameRank(const std::string& name) const
+	{
+		int num = getAbsoluteNumber(name);
+		if (num == -1) {
+			return -1;
+		}
+		int rank = 1;
+		for (auto& entry : mNames) {
+			if (entry.second > num) {
+				rank++;
+			}
+		}
+		return rank;
+	}
+
+	int NameDB::getAbsoluteNumber(const std::string& name) const
+	{
+		auto res = mNames.find(name);
+		if (res != end(mNames)) {
+			return res->second;
+		}
+		return -1;
+	}
+
+	// private
+	bool NameDB::nameExistsAndIncrement(const std::string& name)
+	{
+		auto res = mNames.find(name);
+		if (res != end(mNames)) {
+			res->second++;
+			return true;
+		}
+		return false;
+	}
+
+	void NameDB::addNewName(const std::string& name)
+	{
+		mNames[name] = 1;
+	}
+
+
+	int main()
+	{
+		NameDB boys("boys_long.txt");
+		cout << boys.getNameRank("Daniel") << endl;
+		cout << boys.getAbsoluteNumber("Jacob") << endl;
+		cout << boys.getNameRank("William") << endl;
+		return 0;
+	}
+
+exp: more improvement
+
+// delete nameExistsAndIncrement and addNewname methods.
+
+while(inFile >> name) {
+    auto res = mNames.insert(make_pair(name,1));
+    if (res.second == false) {
+        res.first->second++;
+    }
+}
+
+## 调试
+
+1.调试基本定律
+要为bug的出现制定好规划
+
+2.bug分类学
+灾难性bug
+非灾难性bug
+cosmetic bug(图形界面显示错误但造作无问题)
+
+3.避免bug
+指针和内存管理
+编码前设计
+(请他人)代码审查
+全面测试，再请他人测试
+编写自动测试。所有已实现的特性编写单元测试
+预计错误条件并处理：规划和处理内存不足的情况
+使用智能指针
+配置编译器，用较高的警告级别编译
+使用静态的代码分析器分析源代码
+提高可读性，添加代码注释，使用override关键字
+
+### logging
+syslog(form unix),Boost.Log
+
+应当记录的错误
+1.不可恢复的错误，如无法分配内存或系统调用失败
+2.管理员可采取行动的错误，如内存不足，数据文件格式有误，不能写入磁盘或网络连接关闭
+3.意外的错误，没有预计到的代码路径或变量取了意料外的值（如用户输入非法数据时）
+4.潜在的安全漏洞，例如网络连接试图访问未经授权的地址，或太多的网络连接尝试（拒绝服务）
+
+调试跟踪(trace)的辅助有效信息
+线程ID（多线程）
+生成跟踪信息的函数名
+生成跟踪信息的代码所在的源文件名称
+
+1.调试模式
+启动时调试模式：添加命令行参数，但需要重新启动
+
+exp: log debug
+
+    #include <iostream>
+    #include <cstring>
+    #include <fstream>
+    using namespace std;
+
+    class Logger
+    {
+    // create logger
+    public:
+        static void enableLogging(bool enable) {mLoggingEnabled = enable;}
+        static bool isLoggingEnabled(){ return mLoggingEnabled;}
+        template<typename... Args>
+        static void log(const Args&... args) {
+            if (!mLoggingEnabled)
+                return;
+            ofstream ofs(mDebugFileName, ios_base::app);
+            if (ofs.fail()) {
+                cerr << "unable to open" << endl;
+                return;
+            }
+            logHelper(ofs, args...);
+            ofs << endl;
+        }        
+
+    private:
+        template<typename T1>
+        static void logHelper(ofstream& ofs, const T1& t1) {
+            ofs << t1;
+        }
+        template<typename T1,typename... Args>
+        static void logHelper(ofstream& ofs, const T1& t1, const Args&... args) {
+            ofs << t1;
+            logHelper(ofs, args...);
+        }
+        static bool mLoggingEnabled;
+        static const char* mDebugFileName;
+    };
+    bool Logger::mLoggingEnabled = false;
+    const char* Logger::mDebugFileName = "debugfile.out";
+
+    #define log(...) Logger::log(__func__, "(): ", __VA_ARGS__)
+    // __VA_ARGS__代表了...
+    // log("giv arg", *obj);替换为Logger::log(__func__,"(): ", "giv arg", *obj)
+
+    bool isDebugSet(int argc, char* argv[])
+    {
+        for (int i = 0; i < argc; ++i) {
+            if (strcmp(argv[i], "-d") == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    class ComplicatedClass
+    {
+    public:
+        ComplicatedClass(){}
+    };
+    ostream& operator<<(ostream& ostr, const ComplicatedClass& src) {
+        ostr << "ComplicatedClass";
+        return ostr;
+    }
+    class UserCommand
+    {
+    public:
+        UserCommand(){}
+    };
+    ostream& operator<<(ostream& ostr, const UserCommand& src) {
+        ostr << "UserCommand";
+        return ostr;
+    }
+    int counter{ 0 };
+    UserCommand getNextCommand(ComplicatedClass* obj)
+    {
+        UserCommand cmd;
+        return cmd;
+    }
+    void processUserCommand(UserCommand& cmd) {
+        cout << cmd << counter++ << endl;
+    }
+    void trickyFunction(ComplicatedClass* obj)
+    {
+        log("given arg ", *obj);
+        for (size_t i=0; i<100; ++i) {
+            UserCommand cmd = getNextCommand(obj);
+            log("retrieved cmd ", i, ": ", cmd);
+            try {
+                processUserCommand(cmd);
+            } catch(const exception& e) {
+                log("received exception form processUserCommand(): ",e.what());
+            }
+        }
+    }
+
+    int main(int argc, char* argv[])
+    {
+        Logger::enableLogging(isDebugSet(argc, argv));
+        if (Logger::isLoggingEnabled()) {
+            for (int i=0; i< argc; ++i) {
+                log(argv[i]);
+            }
+        }
+        ComplicatedClass obj;
+        trickyFunction(&obj);
+        return 0;
+    }
+    // 运行方式 on windows(.exe可省略)
+    // > start STDebug.exe
+    // > start STDebug.exe -d
+
+2.编译时调试
+预处理指令DEBUG_MODE,#ifdef.编译时定义符号DEBUG_MODE。GCC通过命令行指定-Dsymbol,VC++命令行指定/D symbol
+- 优点：调试代码不编译到二进制文件
+- 缺点： 发现bug，无法再客户现场调试
+
+3.运行时调试
+提供动态控制调试模式的异步接口，如命令菜单。可用于对程序进行跨进程条用（如套接字，远程过程调用）
+
+环形缓冲区
+> 启动调试可能为时已晚，应启用跟踪(trace),获取最近的跟踪信息，保存在内存中，在需要时存储到错误或日志文件。
+
+常见方法时使用环形缓冲区保存固定数目的短消息，或在固定大小的内存保存消息，缓冲区填满，重新在开头写消息并覆盖就消息。
+
+exp: ring buffer
+
+    #include <iostream>
+    #include <vector>
+    #include <sstream>
+    #include <fstream>
+    #include <iterator>
+    using namespace std;
+
+    class RingBuffer{
+    public:
+        RingBuffer(size_t numEntries = kDefaultNumEntries,
+            std::ostream* ostr = nullptr);
+        virtual ~RingBuffer();
+        template<typename... Args>
+        void addEntry(const Args&... args)
+        {
+            std::ostringstream ostr;
+            // input to ostingstream
+            addEntryHelper(ostr, args...);
+            // now ostringstream is not empty and save it as string in vector
+            addStringEntry(ostr.str());
+        }
+        friend std::ostream& operator<<(std::ostream& ostr, RingBuffer& rb);
+        friend std::ofstream& operator<<(std::ofstream& ostr, RingBuffer& rb);
+        std::ostream* setOutput(std::ostream* newOstr);
+    private:
+        std::vector<std::string> mEntries;
+        std::vector<std::string>::iterator mNext;
+        std::ostream* mOstr;
+        bool mWrapped;
+        static const size_t kDefaultNumEntries = 20;
+        template<typename T1>
+        void addEntryHelper(std::ostringstream& ostr, const T1& t1) {
+            ostr << t1;
+        }
+        template<typename T1, typename... Tn>
+        void addEntryHelper(std::ostringstream& ostr, const T1& t1, const Tn&... args) {
+            ostr << t1;
+            addEntryHelper(ostr, args...);
+        }
+        // 使用&&保存临时字面量
+        void addStringEntry(std::string&& entry);
+    };
+
+    RingBuffer::RingBuffer(size_t numEntries, ostream* ostr):mEntries(numEntries),
+    mNext(begin(mEntries)),mOstr(ostr),mWrapped(false)
+    {
+    }
+    RingBuffer::~RingBuffer(){}
+
+    ostream& operator<<(std::ostream& ostr, RingBuffer& rb)
+    {
+        if (rb.mWrapped){
+            copy(rb.mNext,end(rb.mEntries),ostream_iterator<string>(ostr, "\n"));
+        }
+        copy(begin(rb.mEntries), rb.mNext, ostream_iterator<string>(ostr, "\n"));
+        return ostr;
+    }
+    ofstream& operator<<(std::ofstream& ostr, RingBuffer& rb)
+    {
+        for (auto& e : rb.mEntries){
+            ostr << e;
+        }
+        return ostr;
+    }
+    std::ostream* RingBuffer::setOutput(std::ostream* newOstr)
+    {
+        // return old os, and set new os
+        ostream* ret = mOstr;
+        mOstr = newOstr;
+        return ret;
+    }
+    void RingBuffer::addStringEntry(std::string&& entry)
+    {
+        if(mOstr){
+            *mOstr << entry <<endl;
+        }
+        *mNext = std::move(entry);
+        ++mNext;
+        if (mNext == end(mEntries)) {
+            mNext = begin(mEntries);
+            mWrapped = true;
+        }
+    }
+
+    class ComplicatedClass
+    {
+    public:
+        ComplicatedClass(){}
+    };
+    ostream& operator<<(ostream& ostr, const ComplicatedClass& src) {
+        ostr << "ComplicatedClass";
+        return ostr;
+    }
+    class UserCommand
+    {
+    public:
+        UserCommand(){}
+    };
+    ostream& operator<<(ostream& ostr, const UserCommand& src) {
+        ostr << "UserCommand";
+        return ostr;
+    }
+    int counter{ 0 };
+    UserCommand getNextCommand(ComplicatedClass* obj)
+    {
+        UserCommand cmd;
+        return cmd;
+    }
+    void processUserCommand(UserCommand& cmd, int i) {
+        // cout << cmd << counter++ << endl;
+        cout << i;
+        if (i == 5) {throw invalid_argument("Unable to open file");}
+    }
+
+    RingBuffer debugBuf;
+    // #define addEntry(...) RingBuffer::addEntry(__func__, "(): ", __VA_ARGS__)
+    void trickyFunction(ComplicatedClass* obj)
+    {
+        debugBuf.addEntry(__func__, "():given arg: ", *obj);
+        for (size_t i=0; i<100; ++i) {
+            UserCommand cmd = getNextCommand(obj);
+            debugBuf.addEntry(__func__, "():retrieved cmd ", i, ": ", cmd);
+            try {
+                // main process runs here, if got any fault,don't 
+                processUserCommand(cmd, i);
+            } catch(const exception& e) {
+                debugBuf.addEntry(__func__, "():received exception form processUserCommand(): ",e.what());
+
+                ofstream ofs("trace.out", ios_base::app);
+                if (ofs.fail()){
+                    cerr << "unable to open" << endl;
+                    return;
+                }
+                ofs << debugBuf;
+                return;
+            }
+        }
+    }
+
+
+    int main(int argc, char* argv[])
+    {
+        for (int i=0; i < argc; ++i) {
+            debugBuf.addEntry(argv[i]);
+        }
+        ComplicatedClass obj;
+        trickyFunction(&obj);
+
+        cout << debugBuf;
+        return 0;
+    }
+    // 运行方式 on windows(.exe可省略)
+    // > start STDebug.exe
+    // > start STDebug.exe -d
+
+### （运行时求值）断言
+> <cassert>头文件，定义了assert宏。接受bool表达式，迫使程序在bug来源的确切点公开bug。
+
+NOTE：assert宏行为取决于NDEBUG预处理符号，无此符号则断言。因此常在编译发布版本时定义此符号
+
+静态断言：
+static_assert：编译时对断言求值，参数为求值的表达式和字符串
+static_assert(INT_MAX >= 0xFFF,
+"code requires INT_MAX to be at least 0xFFF");
+用法：通常与类型trait结合。
+
+崩溃转储（内存转储，核心转储），先建立符号服务器：用于存储软件发布二进制版本的调试符号，用以解释来自客户的崩溃转储。创建源代码服务器，存储源代码的所有修订。调试崩溃转储时，源代码服务器下载正确的源代码，以修订创建崩溃转储的软件。其价值高于1000个bug报告
+
+### 调试技术
+1.重现bug，重现每一步操作，运行自动化测试，运行压力测试，并发测试
+2.调试可重复bug
+  - 记录调试消息，仅启用日志（会略微改变程序计时），bug可能消失。
+  - 使用调试器单步跟踪
+3.调试不可重现bug
+  - 尝试重现bug
+  - 分析错误日志
+  - 获取和分析跟踪（如环形缓冲区）
+  - 检查内存转储文件（核心文件），平台提供分析这些内存转储文件的工具
+  - 检查代码
+  - 使用内存观察工具
+  - 提交或更新bug报告（还未完全解决）
+  - 找到根源后，创建可重现的测试用例（修复bug前），可重现，也可用于尝试修复bug后测试
+
+4.调试退化
+  - 查看日志中特性能工作的时间，查看该时间以后的所有改变日志。
+  - 对旧版本二进制文件进行二叉树搜索bug
+
+5.调试内存问题
+
+内存释放错误：
+  - 内存泄漏
+  - 使用不匹配的分配和释放
+  - 多次释放
+  - 释放未分配的内存：通常导致程序崩溃（delete a not valid pointer）
+  - 释放堆栈内存：技术上属于释放未分配的内存的特殊情况
+
+内存访问（读写）错误：通常导致微妙的错误结果，但程序通常能运行
+
+访问无效内存：几乎总导致程序立刻崩溃
+再次访问已释放的内存：通常不崩溃，但被另行分配，可能产生奇怪的值
+访问不同分配中的内存（超过index）：不崩溃，但有潜在危险
+读取未初始化的内存：读取未初始化的值
+
+调试内存错误（purify,valgrind,application verifier）
+内存相关bug每次出现在略微不同的位置，表明堆内存损坏.
+原理：调试工具是运行时验证，插入自己的内存分配和释放例程，检查动态内存相关的误用
+通常查看裸指针的用法
+
+- 类错误
+  - 验证带有动态分配内存的类的析构函数是否准确释放了内存
+  - 确保类能通过复制构造函数和赋值运算符正确处理复制赋值。确保移动构造函数和移动赋值运算符把原对象中的指针正确设置为nullptr,这样其析构函数不释放盖内存
+  - 检查可疑的类型转换，使用dynamic_cast
+- 一般内存错误
+  - 确保每个new的调用都匹配了一个delete调用
+  - 检查缓冲区溢出（C风格字符串）
+  - 检查无效指针的解引用
+  - 堆上声明指正，确保总是在声明时初始化
+  - 确保总是在类的构造函数初始化指针数据成员（赋值或nullptr）
+
+## 调试多线程（存在时序问题）
+- 使用调试器：问题如死锁。将阻塞信息与追踪日志比较
+- 使用基于消息的调试：在程序临界区之前之后，以及获得锁前，释放锁后添加调试语句（但可能改变时序，隐藏bug）
+- 插入前置休眠和上下文切换：是线程睡眠特定时间，强制执行特定的调度行为。<thread>的std::this_thread命名空间中定义了sleep_until(),sleep_for().确保其在释放锁前或堆某个变量条件发出信号前，访问共享数据前休眠几秒。看出竞争条件
+- 核查代码：核查线程同步代码，记下哪些是一定无害的
+
 
 mark pg.665
 
