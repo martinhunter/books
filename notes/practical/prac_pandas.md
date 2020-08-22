@@ -195,6 +195,8 @@ range_s = s[:3]
 # (极少使用) 用reindex完全控制排序,Series中默认index = list(range(n))
 s = pd.Series([1,2,3,4,5], index = ['A', 'B', 'C','D','E'])
 s = s.reindex(index = ['B','A','C','D','E'])
+first_val = s.index[2]  # Series.index[n]可获得index列中的值
+print(first_val == 'C')
 
 # Series的sum,average,mean计算
 s.mean()
