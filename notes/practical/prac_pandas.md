@@ -137,6 +137,7 @@ ds = pd.Series(original_li)
 another_li = [24,26,28,30]
 ds2 = pd.Series(another_li)
 
+[link](https://www.w3resource.com/python-exercises/pandas/python-pandas-data-series-exercise-33.php)
 # Series转换为列表
 retrive_li = ds.tolist()
 
