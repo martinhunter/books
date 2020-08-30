@@ -1,10 +1,527 @@
->运行编译机制注释：(mechanism)
+## Prefix
+
+标注：
+1. 重要机制： mechanism
+2. 范例：exp
+3. 注意点：NOTE
+4. 未知的问题：ISSUE
+
+## Index
+
+
+## 变量
+
+### 内存结构
+> 运行时会在各个地址之间跳转并获取地址处相应的值
+（例如跳转到0x00000004并获取到其中的值11100110）
 
 
 
-## 对象
+地址 | 值 |
+--- | --- |
+0x000001 | 01000110 |
+0x000002 | 00000110 |
+0x000003 | 01100110 |
+0x000004 | 11100110 |
+0x000005 | 01110110 |
+... | ... |
 
-对象：是可存储值，地址值，变量等。在C++中，指类的实例
+#### 1.1 变量
+
+> 对象：在C++中，指类的实例
+
+> 仅创建对象（变量）。变量bind的地址不会变化(为方便将地址写为0x123，实际不止这么长)
+
+	int x=2337;  // x会bind一个地址0x123，并保存类型int, 将0x123处的值设为2337
+	
+	x=2942;  // 跳转到地址0x123，并修改其值
+	
+	int y = x;  // y会bind另一个地址0x789，并保存类型int,获取地址0x123处的值2942，并设置0x789处的值为2942
+
+#### 1.2 名字(in cpython)
+
+> 创建对象，并创建指向此对象的指针（名字）。变量bind的地址会变化
+
+NOTE: cpython中所有都是PyObject对象
+
+	x=2337  # 创建pyobject对象(地址0x123)，初始化其类型，引用次数，设置值为2337。 创建名字x, bind此对象的地址0x123。将0x123的引用次数+1
+	
+	x=2942  # 创建pyobject对象(地址0x432)，初始化其类型，引用次数，设置值为2942。x已创建，修改其bind的地址0x123为0x432
+	
+	y=3  # python内置了简单的字符，数字常量（0-256）的PyObect对象，y=3不生成新的PyObect而是绑定内置对象。
+
+	y=x  # 创建名字y, 获取x bind的地址0x432, y bind地址0x432
+
+exp：
+
+string x = "ssing";  // C++
+1. compiler创建string类型的变量x
+2. 设置x的类型,所在的地址
+2. x{Address: 0x123, type: string }
+3. compiler将地址0x123处的值设置为"ssing"(可能会先进行隐式的类型转换)
+4. 获取x的值时,compiler会跳转到地址0x123读取数据,并根据类型判断要读取的长度
+
+x = "ssing"  # python
+1. 创建匿名的PyObject类型对象anonymous
+2. 设置anonymous的类型,所在的地址,被引用次数
+2. anonymous{Address: 0x123, refcount: 0, type: string}，数据总长度为string类的长度加上refcount(int类)的长度
+3. interpreter将地址0x123处的值设置为"ssing"(可能会先进行隐式的类型转换)
+4. 创建名字x
+5. 设置x的类型,所在的地址
+2. x{type: name/pointer, Address: 0x654}
+3. interpreter将地址0x654处的值设置为0x123，然后获取地址0x123处的值，并将anomynous的refcount加1
+4. 获取x的值时,interpreter会跳转到地址0x654读取数据,并根据类型判断要读取的长度，得到0x123
+5. 由于类型为name/pointer,会再自动访问0x123处的值
+ 
+
+### 指针变量
+
+形式：`int* var = &value;` // value为一个变量
+
+int*：创建指针，它指向的值的类型为int
+&value: 获取value的地址
+*pt: pt的值为一个地址，获取此地址中存储的值
+
+exp:
+
+	int value = 4;  // value bind 地址0x123，跳转到此地址并将值为设置4
+	
+	int * pt = &value;  // 获取value的地址0x123，pt bind 地址0x432, 跳转到0x432处并将值设为0x123
+	
+	int value2 = *pt;  // 跳转到pt bind的地址0x432，获得值0x123。*处理值0x123，跳转到0x123，获得值4。
+					   // value2 bind 地址0x511，跳转到此地址并将值为设置4
+
+### 智能指针：对象超出作用域，如函数执行完毕，自动释放内存
+
+储存在 `memory` 头文件中
+
+- make_unique<clsName>()
+- make_share<clsName>()
+- make_weak<clsName>()
+
+## 引用
+
+> 为一个已存在的值定义一个新的名字，而不会进行值的复制
+>> `引用=变量;` 如果变量bind的地址为x,则引用也bind地址x，类似名字(in cpython), 但bind的地址不能修改(跟变量一样)。相当于变量与名字的结合
+>> [references are not objects](https://en.cppreference.com/w/cpp/language/reference)
+
+使用形式：`int & var = value;`  // value为一个变量或const右值
+
+特性：
+- 创建时就初始化，因此必须先在ctor中初始化引用数据成员(而不能在函数体内）
+- 不能引用未命名的右值，除非使用const修饰引用(形式为`const int &ref = 40;`)
+
+exp:
+
+	int value = 4;  // value bind 地址0x123，跳转到此地址并将值为设置4
+	
+	int & ref = value;  // 获得value bind的地址0x123，ref也 bind 地址0x123
+	
+	int value2 = ref;  // 跳转到ref bind的地址0x123，获得值4。
+
+引用 vs 指针：
+
+- 安全，不直接处理内存地址而是处理此地址的值，也不会是nullptr
+- 也因此文体好，使用与堆栈变量相同的语法，而不用像指针加上*，&。
+- 易于使用，加入到风格中没有问题。
+- 明确内存所有权，可修改对象，但无法轻易释放对象的内存。
+
+#### [pointers-vs-references](https://www.geeksforgeeks.org/pointers-vs-references-cpp/)
+
+- Use references
+	- In function parameters and return types.
+- Use pointers:
+	- Use pointers if pointer arithmetic or passing NULL-pointer is needed. For example for arrays (Note that array access is implemented 
+	-  pointer arithmetic).
+	- To implement data structures like linked list, tree, etc and their algorithms because to point different cell, we have to use the concept of pointers.
+
+
+### 左值引用：对一个左值引用，在类型后加符号`&`
+
+> 左值：是一个标识非临时性对象的表达式。一个对象被命名了，它就是一个左值。
+> 右值：是一个标识非临时性对象的表达式，非左值都是右值，如常量值，临时对象或临时值。
+
+左值引用：引用左值（函数返回值为右值，不能直接左值引用），一般引用`变量名`（指代一个对象）。
+
+exp: 左值引用尝试引用右值时引发错误:cannot bind non-const lvalue reference of type 'int&' to an rvalue of type 'int'
+
+	//error exp 1
+	int & lref = 30;
+	//error exp 2
+	int func(int arg){return arg}; 
+	int & lref = func(arg);
+	// 因为右值是临时性对象,只是一个不可变的值，未命名
+
+	string f = "tempVal";
+	// 临时地址及其中的值会在赋值后（左值的变量地址中保存了值的复制）被销毁。
+
+左引用的作用：
+1. 简化复杂的名称
+2. 不创建值的副本（可用于循环中map本身）
+
+exp: 使用左引用
+
+	<vector>int ar = {10,11,12,13};
+	int x = ar[1];
+	x += 20;
+	if(ar[1] == 11){
+		return 0;
+	}
+	int & y = ar[1];
+	y += 20;
+	if(ar[1] == 31){
+		return 0;
+	}
+	int & func(vector<int> myArray){return myArray[1];}
+	int & lref = func(ar);
+	if(&lref == &arr[1]){return 0}
+
+### 右值引用：对一个右值(临时量）引用，在类型后加符号`&&`
+
+右值引用：引用右值，右值（可称为匿名变量）一般都是个临时值，字面常量。
+
+(mechanism)：匿名变量（未命名的变量，指某个值未bind一个命名的变量）bind的地址区域会在切换作用域时立即被销毁
+
+exp: 为什么默认是复制右值
+
+	void func(string val){cout << val;}
+	func("thisIsLiteral");
+
+1. "thisIsLiteral"是一个匿名变量，在func外界创建
+1. 切换到func作用域后，匿名变量"thisIsLiteral"被销毁，其地址范围标记为空闲状态
+1. 此时这个对象可能被一个未知的对象使用
+1. 若将val直接bind "thisIsLiteral"的地址
+1. 无论是未知对象(通常与val大小不同)还是val的值进行了修改，都几乎肯定造成对方的错误。
+1. 为避免这种错误，C++对这类右值进行复制（变量bind一个新地址而非bind右值的地址）
+
+exp: 使用右值引用
+
+	string s = "hell";
+	string&& pl = s + "wo";
+
+	void func(string&& val){cout << val;}
+	func("thisIsLiteral");
+	// val绑定匿名变量"thisIsLiteral"的地址，`&&`迫使val离开其作用域前，此匿名变量不被销毁
+
+NOTE: `&&`是一整个符号，并不是代表引用的引用
+
+#### 右值引用 vs 左值引用
+
+右值引用
+- 引用右值
+- 每个右值同时只能存在一个右值引用
+- 右值引用超出作用域后销毁对象
+
+左值引用
+- 引用左值
+- 每个左值同时可存在多个左值引用
+- 左值引用超出作用域后不销毁对象
+
+ISSUE：C++11后添加新符号&&表示右值引用。问：为什么要添加&&，而不是用&同时表示左右值引用？可能的原因为：
+1. &只能引用左值（或const右值），为保证兼容性而添加新符号
+2. 右值引用超出作用域后应当销毁对象，而左值引用超出作用域后却不应当销毁对象，若不区分左右引用，就会造成错误。（比较合理）
+
+#### std::move 和 std::swap
+
+> 都使用了右值引用
+
+std::move将左值转换为右值，右值拥有可移动性
+- std::move()实际上使用了static_cast<typeName &&>()
+
+std::swap将左值与右值中的值互相交换（交换bind的地址值）
+- swap实际上是使用了std::move()避免复制
+
+	string b = "turnToRValue";
+	// 由于只能存在一个右值引用，当前作用域内b bind 地址改为Null
+
+	string a = std::move(b);
+
+	string c = "swap C to A";
+
+	std::swap(a,c);
+
+	cout<< "a: " << a << "\nb: " << b << "\nc: " << c << endl;
+
+
+
+## 函数
+
+> 普通函数是只读的，后期不能进行修改。
+
+> cout所有func，\*func（包括函数指针(\*func) ）的值都为1
+
+NOTE: 函数所有设置默认值的参数都要放到最后（同python的**kwargs）
+
+形式：returnType funcName(paramType param){body; return someValue;}
+调用：funcName(args);
+
+- param传递机制: 默认按值传递
+- return传递机制: 默认返回右值
+
+exp: 创建及调用函数
+
+	MyClass func(string s){MyClass ll(s); return ll;}
+	string bs = "ssss";
+	MyClass rr = func(bs);
+	
+	运行过程：
+	1. string s = bs;
+	2. MyClass rr = ll;
+
+
+
+### 函数指针
+
+- 函数形式:rtType originalFunc(parType1 par1, parType2 par2){}
+- 函数指针形式：rtType (*FuncPointer)(parType1, parType2) = originalFunc;  // 在originalFunc前加不加&都没有影响
+	- 形式说明：函数指针形式同函数,但要将`originalFunc`改为`(*FuncPointer)`
+	- 调用函数指针:调用方式与普通定义的函数相同,`FuncPointer(arg1, arg2);`
+	- 特性：函数指针可赋值，因此指向的函数可变，而普通函数不能赋值（只读）
+	- 作用：为一个函数起别名
+
+exp: 创建函数指针
+
+	#include <iostream>
+	using namespace std;
+	
+	int ch(double bil, int rr){
+	    cout << bil << " and " << rr << endl;
+	    return 32;}
+	void f1(){ cout << 13 << endl; }
+    void f2(){ cout << 26 << endl; }	
+	int main(){
+	    int (*pt)(double, int) = ch;
+	    int (*pt3)(double, int) = ch;
+		cout << ch << endl;  // >>> 1
+	    cout << *ch << endl;  // >>> 1 
+	    cout << pt << endl;  // >>> 1
+		cout << *pt << endl;  // >>> 1
+	    cout << pt3(2.2,4) << endl;  // >>> 32, 调用了ch()
+	    cout << "---seperator---" << endl;
+		void (*f3)() = f1;
+	    f3();  // >>> 13
+		f2 = f1;  // 普通函数只读，因此报错
+	    f3 = f2;  // 函数指针可写/可进行赋值，不会报错
+	    f3();  // >>> 26
+
+		return 0;
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## （函数的）参数传递&返回值传递
+
+> 默认对一个函数，将函数内相应的形参值初始化为实参的值。如此这个函数获得了实参值的拷贝，而并不会对实参的值产生影响。
+
+原理：使用代换模型，将实参值赋值给形参
+
+exp: 传值调用过程
+
+	arg = 3
+	int func(int param){
+		param += 1;
+		return param
+	}
+	int returnVal = func(arg)
+
+	// 运用代换模型
+	int param = arg;  // 访问arg bind的地址，并获得值3
+	param = 3;
+	param += 1;
+	int returnVal = param  // param为右值，访问param bind的地址，并获得值3赋值给returnVal，param超出作用域后即被销毁
+	
+
+exp: 传指针调用过程
+
+	string func(string * param){
+		*param += "AnyStr";
+		return "arr already changed";
+	}
+	int main(){
+		string arr = "superCo";
+		string retArr = func(&arr);
+	}
+
+	// 运用代换模型
+	string * param = &arr  // param保存了arr bind的地址
+	*param += 'AnyStr';  // 跳转至arr的地址，并修改其中的值
+	string retArr = "arr already changed";  // "arr already changed"为右值，超出作用域后即被销毁
+
+exp: 传引用调用过程
+	
+	vector<int> arg = {3,6,8};
+	void func(vector<int> & param)
+	{
+		for(auto & x: param){
+			x += 10;
+		}
+	}
+	func(arg)
+	if(arg[1] == 13){return 0}
+		
+	// 运用代换模型
+	vector<int> & param = arg;  // arg bind 地址，将param也bind此地址
+	auto & x = param[0];  // 获取param[0] bind的地址，并将x也 bind 此地址
+	x += 10;  // 跳转至x bind的地址，并修改其中的值
+	auto & x = param[1];  // 获取param[1] bind的地址，并将x也 bind 此地址（不再是param[0]的地址）
+	x += 10;  // 跳转至x bind的地址，并修改其中的值
+	auto & x = param[2];  // 获取param[2] bind的地址，并将x也 bind 此地址不再是param[1]的地址）
+	x += 10;  // 跳转至x bind的地址，并修改其中的值
+	// 离开作用域，销毁x,param
+
+### 参数传递类型
+
+1.传值调用（call-by-value)
+
+> 是默认的传递方式，函数接收某个值或者对象的副本
+> 适用：小的，不改变的实参（对象）
+	
+	void print2(double a){
+		cout<< a << endl;
+	}
+	
+	// 完全复制实参的值，低效
+	vector<string> a{"one","two","three"};
+	void randomItem(vector<string> arr){
+		cout << arr[0];
+	}
+	reffunc(a);
+
+2.传（左值）引用调用（call-by-lvalue-reference)
+
+> 适用：改变实参的值
+
+	double x = 3;
+	double y = 4;
+	void swap(double & a,double & b){
+		double temp = a;
+		a = b;
+		b = temp;
+	}
+	swap(x,y)  // 调用
+
+3.传常量引用调用（call-by-constant-reference)
+
+> 适用：大的，不改变的实参（对象），且赋值代价昂贵。对引用加上const，禁止引用后修改实参。
+	vector<string> a{"one","two","three"};
+	void reffunc(const vector<string> & arr){
+		cout << arr[0];
+	}
+	reffunc(a);
+
+4.传（右值）引用调用（call-by-rvalue-reference)
+
+> 核心：右值存储要被销毁的临时量，像x=rval(rval为右值)通过`移动而非复制`实现。可给予参数是左值还是右值重载函数实现。
+
+> 适用：实参就是1个大的右值直接传入
+
+	void rhsReffunc(const vector<string> && arr){
+		cout << arr[0];
+	}
+	rhsReffunc({"one","two","three"});
+
+### 返回值传递类型
+
+> 在所有情况下函数调用的结果都是一个右值。
+> c++11后，若赋值运算符的右边（或构造函数）是一个右值，那么当对象支持移动操作时，能自动避免复制
+
+1.传值返回
+
+	int func(vector<string> arr){
+		int i = 4;
+		return i;
+	}
+
+2.传引用返回:参数，返回类型，皆设为左值引用类型。有一处未引用都会造成对象的复制（但使用并返回vector对象，类似python列表，则只要将参数设为左值引用类型即可）。
+	
+	vector<string>& reffunc(vector<string>& arr){
+		arr[0] = "newS";
+		return arr;
+	}
+	vector<string> a{"one","two","three"};
+	vector<string>& rf = reffunc(a);
+
+3.传常量引用返回
+
+	const string& reffunc(const vector<string>& arr){
+		return arr[2];
+	}
+	vector<string> a{"one","two","three"};
+	const string& crf = reffunc(a);
+
+4.右值移动返回（std::move将左值转换为右值，支持移动)
+
+	vector<string> func(vector<string>& arr){
+		arr[0] = "333";
+		return arr;
+	}
+	vector<string> a{"one","two","three"};
+	vector<string> crf = move(reffunc(a));
+
+	1. 不用右值引用	
+	void swap(vector<string> & x, vector<string> & y){
+		/*temp，x，y都为左值，会进行3次复制。
+		* 改为vector<string>& temp = x; 可减少一次复制。
+		* 但是x = y;依然会进行复制，也即跳转至y的地址，获取y的值，然后跳转至x的地址，设为y的值。
+		* y = temp同理。
+		*/
+		vector<string> temp = x;
+		x = y;
+		y = temp;
+	}
+	2. 转换类型为右值引用
+	void swap(vector<string>& x, vector<string>& y){
+		vector<string> tmp = static_cast<vector<string> &&>(x);
+		x = static_cast<vector<string> &&>(y);
+		t = static_cast<vector<string> &&>(tmp);
+	}
+	3. move会使用移动语义，将左转化为右值
+	void swap(vector<string>& x, vector<string>& y){
+		vector<string> tmp = std::move(x);
+		x = std::move(y);
+		t = std::move(tmp);
+	}
+
+
+
+
+
+
+
+
+
+
+
+
 
 #### 类型推断
 
@@ -12,7 +529,7 @@
 
 最好使用decltype(auto)判断类型：
 
-	const sreing message = "test";
+	const string message = "test";
 	const string& foo(){ return message };
 	
 	const auto & f1 = foo();
@@ -23,6 +540,12 @@
 	但f2中foo()调用2次
 	推荐使用f3，
 	f1也可行，不推荐f2*/
+
+拖尾返回类型：返回类型在参数列表后指定，如此解析的时侯参数名称（及参数类型，t1+t2的类型）已知。（C++14中可省略拖尾返回类型）
+
+	template<typename Type1, typename Type2>
+	auto myFunc(const Type1& t1, const Type2& t2) -> decltype(t1+t2)
+	{return t1 + t2;}
 
 #### 强制类型转换：
 
@@ -41,6 +564,14 @@ NOTE：部分数据类型可自动转换。exp：shot可自动强制转换为lon
 栈：如果当前函数foo()调用另一个函数bar()，任何从foo()传递给bar()的参数都会从foo()栈帧复制到bar()栈帧，bar()执行完销毁内存，其中声明的所有变量都不再占用内存(包括foo()复制过来的参数)，此过程自动执行。
 
 堆：想在函数调用结束后依然保存其中声明的变量，可将变量放到堆中。
+
+销毁：指将此部分内存标记为空闲状态，空闲的内存可被分配给其他对象
+
+1. string s = "toBeDestroyed"; // s bind的地址为0x61fde0。这个string的范围为0x61fda0~0x61fdc0
+1. 销毁s
+1. 删除整个变量名s
+1. 不会修改0xcdf2fa19处的值
+1. 但会将0x61fda0~0x61fdc0标记为空闲（供以后的变量使用）
 
 NOTE：指针通常指向堆内存，但也可指向栈中的变量（&variable）。
 
@@ -98,7 +629,8 @@ exp:使用new创建二维数组
 	mCell * pt = new mCell[m];
 	mCell* * pt = new mCell*[o];
 
-> When using new,memory is allocated on heap,and it's pointer needs to be deleted otherwise it will live and thus causes memory leak.
+> When using new,memory 
+> is allocated on heap,and it's pointer needs to be deleted otherwise it will live and thus causes memory leak.
 
 > But new doesn't always mean memory will be allocated on heap , it depends like if A is local variable (like in a method) it will be on stack memory Or if A is a member of a class then it will be on heap when instance of class is created.
 
@@ -127,480 +659,6 @@ exp:释放new创建的空间
 
 
 
-
-## 变量
-
-#### 1.1 变量
->（绑定一个匿名地址，给匿名地址一个名称）：先对`=`左边进行操作
-
-int x=2337;
-
-x默认bind一个不变的地址值（相当于bind了一个不变的对象），由此地址值指向可变的对象.
-变量本身的内存地址在被分配后（销毁前）就不再改变，只能改变其中的值
-
-x=2942;
-
-修改时，x对bind的地址解引用并修改其中的值
-
-int y = x;
-
-y绑定一个
-
-#### 1.2 名字(in python)
-
->（绑定一个匿名对象，给匿名对象一个名称）：先对`=`右边进行操作.
-
-x=2337
-
-x默认bind一个可变的对象，bind一个可变的地址值，地址值指向一个PyObject.
-
-x=2942  // 将2337改为2942
-
-修改时,一个新的PyObject对象生成，并使x绑定新地址
-
-y=3
-
-python内置了简单的字符，数字常量（0-256）的PyObect对象，y=3不生成新的PyObect而是绑定内置对象。
-
-y=x
-
-x已经是一个PyObject，不用再生成新PyObject，将y绑定此PyObject的地址值
-
-
-求值(eval)：获取变量名所绑定的地址值中所存储的值
-
-*变量的储存形式*：
-
-	{variableName：addressOfVariable,...}
-	addressVariable->valueStoredInAddressOfVariable,...
-
-举例：
-
-	int a = 3;
-	
-	对3求值，获得一个临时值3
-	创建变量a,绑定的地址为addressA
-	将地址addressA中的值设为3
-	
-	储存形式：a ~ addressA ~ 3
-	
-	int b = a;
-	
-	对a求值，返回a绑定的地址addressA中的值3
-	创建变量b,绑定的地址为addressB
-	将地址addressB中的值设为3
-	
-	储存形式：2个3不是同一个3
-		a ~ addressA ~ 3
-		b ~ addressB ~ 3
-	
-	a = 4;
-	
-	对4求值，获得一个临时值4
-	获取变量a（键）所绑定的地址addressA（值）
-	将地址addressA中的值改为4
-	
-	储存形式：a ~ addressA ~ 4
-	
-	
-	eval(a) = valueInAddressA = 4
- 
-
-### 指针变量：Var1绑定的地址不变，地址储存的值为其他变量Var2的地址值
-
-使用形式：int `*` var2 = value2;
-
-	int variable = 4;
-	
-	对3求值，获得一个临时值4
-	创建变量variable,绑定的地址为addressVariable
-	将地址addressVariable中的值设为4
-	
-	int * pt = &variable，
-	
-	对&variable求值，获得variable绑定的地址addressVariable
-	创建指针变量pt,绑定的地址为addressPt
-	将addressPt处的值设为variable的地址值addressVariable
-	
-	储存形式：
-		variable ~ addressA ~ 4
-		pt ~ addressPt ~ addressVariable
-	
-	eval(pt) = addressVariable
-
-### 智能指针：对象超出作用域，如函数执行完毕，自动释放内存
-
-储存在 `memory` 头文件中
-
-- make_unique<clsName>()
-- make_share<clsName>()
-- make_weak<clsName>()
-
-## 引用
-
-> 引用相当于一个变量的别名（Nick的小名是Nif，但Nick和Nif都指Nick这个人），因此其特性也和此变量相同
-
-特性：创建时就初始化，因此必须先在ctor中初始化引用数据成员(而不能在函数体内），不能引用未命名的右值，除非使用const修饰引用
-
-
-
-NOTE：初始化一个引用之后，不能再改变它引用的对象（但可改变此对象的值）
-
-原理：引用名Var1绑定的地址变为其他变量Var2的地址值，此地址的值为Var2的值，此时Var1可直接修改Var2中的值
-
-引用相对于指针的优点：
-
-- 安全，不直接处理内存地址而是处理此地址的值，也不会是nullptr
-- 也因此文体好，使用与堆栈变量相同的语法，而不用像指针加上*，&。
-- 易于使用，加入到风格中没有问题。
-- 明确内存所有权，可修改对象，但无法轻易释放对象的内存。
-
-#### [pointers-vs-references](https://www.geeksforgeeks.org/pointers-vs-references-cpp/)
-
-- Use references
-	- In function parameters and return types.
-- Use pointers:
-	- Use pointers if pointer arithmetic or passing NULL-pointer is needed. For example for arrays (Note that array access is implemented 
-	-  pointer arithmetic).
-	- To implement data structures like linked list, tree, etc and their algorithms because to point different cell, we have to use the concept of pointers.
-
-
-### 左引用变量：对一个变量引用
-
-> 左值：是一个标识非临时性对象的表达式。
-> 一个对象有名字，它就是一个左值。
-> 
-> 右值：是一个标识非临时性对象的表达式，或字面常量。
-
-> references are not objects.
-> [--cppReference](https://en.cppreference.com/w/cpp/language/reference)
-
-左值引用：引用左值（函数返回值为右值，不能直接引用,除非将函数返回值类型设为左值引用），一般引用`变量名`（指代一个对象）。
-
-左值引用尝试引用右值时：
-
-	//exp 1
-	int & lref = 30;
-	
-	// exp 2
-	int func(int arg){return arg}; 
-	int & lref = func(arg)
-
-	都会报错error:cannot bind non-const lvalue reference of type 'int&' to an rvalue of type 'int'
-	// 因为右值是临时性对象,只是一个不可变的值，
-	// 临时地址及其中的值会在赋值后（左值的变量地址中保存了值的复制）被销毁。
-
-解决方法：
-	
-参数，函数返回值，引用变量，3者数据类型皆设为左值引用类型。
-
-	int & func(vector<int> arr){return arr[1];}
-	int & lref = func(arr);
-	if(&lref == &arr[1]){return 0}
-
-作用：
-
-1.简化复杂的名称
-
-2.不创建值的副本（可用于循环中map本身）
-
-	<vector>int ar = {10,11,12,13};
-	int x = ar[1];
-	x += 20;
-	if(ar[1] == 11){
-		return 0;
-	}
-	int & y = ar[1];
-	y += 20;
-	if(ar[1] == 31){
-		return 0;
-	}
-
-使用形式：int `&` var2 = value2;
-
-	int variable = 4;
-	
-	int & reflpt = variable;
-	
-	对variable求值,似乎由于引用不直接求值，而是返回地址addressVariable???
-
-	创建引用变量reflpt，绑定的地址为addressReflpt
-	变量类型为引用，因此对variable的求值为
-	将reflpt绑定的地址addressReflpt改为addressVariable
-	
-	储存形式：
-		variable ~ addressVariable ~ 4
-		reflpt ~ addressVariable ~ 4
-	
-	eval(reflpt) = valueInAddressVariable = 4
-
-### 右引用变量：储存一个临时值的引用
-
-右值引用：引用右值，一般引用`对象的值`，`字面常量`
-
-使用形式：int `&&` var2 = value2;
-
-int && pt = value
-
-
-
-## 函数
-
-> 普通函数是只读的，不能进行修改。
-
-> cout所有func，\*func（包括函数指针(\*func) ）的值都为1
-
-形式：
-
-	定义：returnType funcName(paramType param){body; return someValue;}
-	调用：funcName(args);
-
-- param传递机制: 默认按值传递
-- return传递机制: 默认返回右值
-
-ex: 创建及调用函数
-
-	double outp(SomeClass ob){double rt = ob.doubleValue; return rt;}
-	SomeClass obInstance;
-	outp(obInstance);
-
-### 函数指针
-
-形式：FuncCopy为指向originalFunc的函数指针,调用方式与普通定义的函数相同。
-
-	定义函数:rtType originalFunc(parType1 par1, parType2 par2){}
-	定义函数指针：rtType (*FuncPointer)(parType1, parType2) = originalFunc;
-    // 将originalFunc改为(*FuncPointer)，其他同originalFunc,在originalFunc前加不加&都没有影响
-	调用：FuncPointer(arg1, arg2);
-
-特性：函数指针可赋值，因此指向的函数可变，而普通函数不能赋值（只读）
-
-exp: 创建函数指针
-
-	#include <iostream>
-	using namespace std;
-	
-	int ch(double bil, int rr){
-	    cout << bil << " and " << rr << endl;
-	    return 32;}
-	void f1(){ cout << 13 << endl; }
-    void f2(){ cout << 26 << endl; }	
-	int main(){
-	    int (*pt)(double, int) = ch;
-	    int (*pt3)(double, int) = ch;
-		cout << ch << endl;  // >>> 1
-	    cout << *ch << endl;  // >>> 1 
-	    cout << pt << endl;  // >>> 1
-		cout << *pt << endl;  // >>> 1
-	    cout << pt3(2.2,4) << endl;  // >>> 32, 调用了ch()
-	    cout << "---seperator---" << endl;
-		void (*f3)() = f1;
-	    f3();  // >>> 13
-		f2 = f1;  // 普通函数只读，因此报错
-	    f3 = f2;  // 函数指针可写/可进行赋值，不会报错
-	    f3();  // >>> 26
-
-		return 0;
-	}
-
-### 匿名函数
-
-形式：`[](parType1 par1, parType2 par2){ body; }`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 参数传递机制
-
-> 对一个函数，将函数内相应的形参值初始化为实参的值。如此这个函数获得了实参值的拷贝，而并不会对实参的值产生影响。
-
-### 传值调用过程
-	// 定义
-	arg = 3
-	int func(int param){
-		param += 1;
-		return param
-	}
-	func(arg)
-
-	// 实际运行过程
-	// arg地址ad1,Copy3地址ad2，此时Copy3绑定的地址对3进行了复制
-	ad2 != ad1
-	Copy3 = eval(arg) = 3
-	
-	// substitute params in function with Copy3
-	func(Copy3){
-		Copy3 += 1
-		return Copy3  // 返回4
-	}
-
-### 传指针调用过程
-	// 定义
-	vector<string> * func(vector<string> * param){
-		*param += 'AnyStr';
-		return 'arr already changed'
-	}
-	
-	vector<string> arr = 'superCo';
-	func(&arr)
-	
-
-
-	// 实际运行过程
-	// arr地址值为AdOfArr,此时CopyValue绑定的地址存储了地址AdOfArr
-	ad2 != ad1
-	CopyValue = eval(&arr) = AdOfArr
-	func(CopyValue){
-		*CopyValue = 'AnyStr';
-		return 'arr already changed'  // Arr的值已被修改
-	}
-	if(arr == 'superCoAnyString'){
-		return 0
-	};
-
-### 传引用调用过程
-	
-	// 定义
-	vector<int> arg = {3,6,8};
-	void func(vector<int> & param)
-	{
-		for(auto & x: param){
-			x += 10;
-		}
-	}
-	func(arg)
-	if(arg[1] == 13){return 0}
-	
-	
-	// 实际运行过程
-	// arg地址为AdOfArr，值为valueInArg。此时refValue绑定的地址改为AdOfArr，并不进行复制。
-	ad2 == ad1
-	refValue = eval(arg) = valueInArg
-	// 使用refValue代换后对函数内部求值
-	func(refValue)
-	{
-		// x对param引用，以引用相应的值
-		for(auto & x: param){
-			x += 10;
-		}
-	}
-
-1.传值调用（call-by-value)
-
-> 是默认的传递方式，函数接收某个值或者对象的副本
-
-> 适用：小的，不改变的实参（对象）
-	
-	void print2(double a){
-		cout<< a << endl;
-	}
-
-2.传（左值）引用调用（call-by-lvalue-reference)
-
-> 适用：改变实参的值
-
-	double x = 3;
-	double y = 4;
-	void swap(double & a,double & b);  // 声明
-	swap(x,y)  // 调用
-
-3.传常量引用调用（call-by-constant-reference)
-
-> 适用：大的，不改变的实参（对象），且赋值代价昂贵。是为了禁止引用后修改实参而出现的。
-
-	string randomItem(vector<string> arr);  // 传值调用，低效
-	string randomItem(constant vector<string> & arr); // 传常量调用，高效
-
-4.传（右值）引用调用（call-by-rvalue-reference)
-
-> 核心：右值存储要被销毁的临时量，像x=rval(rval为右值)通过`移动而非复制`实现。可给予参数是左值还是右值重载函数实现。
-
-> 适用：???
-
-	string randomItem(constant vector<string> & arr); // 传递左值
-	string randomItem(vector<string> && arr); // 传递右值
-
-	void f(int&& x) {
-	    std::cout << "rvalue reference overload f(" << x << ")\n";
-	}
-	f(3);  // calls f(int&&)
-           // would call f(const int&) if f(int&&) overload wasn't provided
-
-## 函数返回值传递机制
-
-> 在所有情况下函数调用的结果都是一个右值
-
-1. 传值返回
-2. 传引用返回:参数，函数返回值，引用变量，3者数据类型皆设为左值引用类型。有一处未引用都会造成对象的复制（但使用并返回vector对象，类似python列表，则只要将参数设为左值引用类型即可）。
-3. 传常量引用返回
-4. 右值移动返回
-
-
-#### std::move
-
-std::move使一个值易于移动，可将左值转换为右值。调用移动构造函数`Clb(Cls && rhs)`
-	
-	void swap(vector<string> & x, vector<string> & y){
-		//temp，x，y都为左值，会进行3次复制
-		vector<string> temp = x;
-		x = y;
-		y = temp;
-	}
-
-	// vector<string> 也可是任意其他class	
-	void swap(vector<string> & x, vector<string> & y){
-		//temp，x，y都为左值，使用std::进行3次移动
-
-		vector<string> temp = std::move(x);
-		//或 vector<string> temp（std::move(x));
-		x = std::move(y);
-		y = std:move(temp);
-	}
-
-#### std::swap
-
-std::swap实际上交换了对象的值。左值与右值中的值互相交换。调用移动赋值运算符函数`Cls& operator=(Cls && rhs)`
-
-move和swap在调用对应的函数后，立即调用右值对象的析构函数
-
-
-
-
-
-
-
-
-
-
-
-
-
 ***
 ***
 ***
@@ -609,23 +667,27 @@ move和swap在调用对应的函数后，立即调用右值对象的析构函数
 
 > 类默认说明符为private，struct默认说明符为public
 
-形式：class YourClassName{};
+形式：`class ClassName{};`
 
-创建实例： YourClassName inst; // 与 YourClassName inst{}; 作用相同
+创建(无参数)实例： `ClassName inst;` // 与 ClassName inst{}; 作用相同
 
 NOTE:创建类对象最好使用{}，例如 ClsName instance2{args}。创建无参数的实例对象，使用()会被当做返回值为ClsName的函数处理，从而报错
 
 ## 构造函数
 
-创建对象/为对象分配空间(mechanism)：创建一个实例对象时（此对象需要32个字节），将未被使用的地址0xbfdd-0xbffd分配（绑定）到此对象，其中的值未进行初始化，都是随机值，此时若指针指向随机值并尝试调用会产生不可知的后果（通常是内存访问错误）
+作用：创建类对象时自动调用构造函数以初始化对象。
 
-成员变量初始化：0xbfdd-0xbffd的值设置为期望的（有效）初始值
+创建对象/为对象分配空间(mechanism)：
+- 创建一个实例对象时（例如此对象需要32个字节）
+- 将空闲的内存地址(如0xbfdd-0xbffd)分配（绑定）到此对象
+- 此时其中的值未进行初始化，都是随机值
+- 此时若指针指向随机值并尝试调用会产生不可知的后果（通常是内存访问错误）
+
+对象(成员变量)初始化：将0xbfdd-0xbffd处的值设置为期望的（有效）初始值
 
 形式：与类同名但没有返回值
 
-作用：创建类对象时自动调用以初始化对象。
-
-#### 隐式转换为类对象：
+#### 隐式转换为类对象
 
 当`=`左侧为一个类对象，右侧为其他类型值/对象时，若类有参数为右值类型的构造函数，会将右值作为参数传到此构造函数中，以创建一个临时对象，没有则会报错。
 	
@@ -635,13 +697,15 @@ exp：隐式转换
 	{
 	public:
 		Cell(std::string value);
-		Cell(int value);  // ins = 10; 会将10作为参数传入此构造函数并创建临时对象
+		Cell(int value);  // 会将10作为参数传入此构造函数并创建临时对象
 		Cell(double value);
 	};
-	Cell ins;
-	ins = 10;
+	Cell ins = 10;
+	Cell ins2(10);
 
 #### explicit
+
+只有1个参数的构造函数
 
 只用于类的构造函数声明，此构造函数不能自动进行隐式转换,如int转换为double，double装换为类
 
@@ -703,6 +767,8 @@ exp:由于重载了operator+，会尝试将10.3隐式转换为Cell类型的对�
 6. 调用A的构造函数，在函数体中
 6. 进行其他操作
 8. 完成了A的初始化
+
+exp: 创建对象
 
 	#include <iostream>
 	#include <string>
@@ -792,13 +858,14 @@ exp： 定义不同构造函数产生的影响
 
 ## 类的5大函数
 
-- 析构函数（destructor）
+- 析构函数（destructor) 所有类必须有，其他几个函数可=delete
+
 - 拷贝构造函数（[copy constructor](https://en.cppreference.com/w/cpp/language/copy_constructor)）
 - 移动构造函数（move constructor）
 - 拷贝赋值运算符（copy assignment operator)
 - 移动赋值运算符（move assignment operator)
 
-
+> 有动态分配的内存时(new),需提供以上的函数
 
 exp:一个包含5大函数的类
 
@@ -855,7 +922,7 @@ exp:一个包含5大函数的类
 		return 0;
 	}
 
-exp: 一个包含5大函数的类
+exp: 另一个包含5大函数的类
 
 	#include <iostream>
 	#include <string>
@@ -2159,7 +2226,7 @@ exp:类中的operator int()将类隐式转换为int类型
 	
 	IntWrapper el(12);
 	int i = el; // 类隐式转换为int类型
-	// int i = static_cast<int>(el); 添加explicit后需显示调用
+	// int i = static_cast<int>(el); 添加explicit后需显式调用
 
 ### 特性
 
@@ -4366,11 +4433,13 @@ exp: accumulate,返回一个数类型的值,即auto通常为int，double，long 
 	
 	auto sum = accumulate(beign(container),end(container),initialValue);
 
-### lambda（是一种仿函数）
+### lambda(匿名函数)（是一种仿函数）
 
 > NOTE：仿函数在C++中的作用为闭包
 
-形式（Pg.464)：auto rt = [capture_block](paramType param)mutable exception_specification attribute_specifier -> return Type{ body };
+形式：`[](parType1 par1, parType2 par2){ body; }`
+
+形式（Pg.464)：auto rt = [capture_block]\(paramType param) mutable exception_specification attribute_specifier -> return Type{ body };
 
 说明：
 - [var]用来捕捉(通常不变的）变量用于直接在lambda的body中使用，默认传值副本,且此变量是`只读`的，要修改需要引用[&var],此时iterator变化时，var的值都会改变。
@@ -5231,7 +5300,7 @@ exp: 如果调用方法指针(一般不会用到)
 	int main(){
 		Cell myCell(124);
         // 上下文中解除引用
-		double (Cell::*ptr) (int s) const = &Cell::getValue;  // 不像普通函数指针,这里必须使用&
+		double (Cell::*ptr) (int s) const = &Cell::getValue;  // 不像普通函数指针,方法指针必须使用&
         // 通过对象调用非静态方法
 		cout << (myCell.*ptr)(31) << endl;
 
@@ -5696,7 +5765,961 @@ exp: 几种锁定方式
     	return 0;
     }
 
-### 变量条件
+### 变量条件 (在<condition_cariable>头文件中)
+
+std::condition_variable 只能等待unique_lock<mutex>的条件变量
+std::condition_variable 可等待任何对象的条件变量，包括自定义锁
+
+支持的方法：
+notify_one() 唤醒一个等待此条件变量的线程，类似windows的auto-rest
+notify_all() 唤醒等待此条件变量的所有线程
+wait(unique_lock<mutex>& lk)
+
+exp: 使用条件变量
+
+    #include <iostream>
+	#include <thread>
+	#include <queue>
+	#include <vector>
+	#include <mutex>
+	#include <atomic>
+	#include <fstream>
+	#include <sstream>
+	#include <atomic>
+	#include <condition_variable>
+	using namespace std;
+
+	class Logger{
+	public:
+		Logger();
+		virtual ~Logger();
+		Logger(const Logger& src) = delete;
+		Logger& operator=(const Logger& rhs) = delete;
+		void log(const std::string& entry);
+
+	private:
+		std::atomic<bool> mExit;
+		void processEntries();
+		std::mutex mMutex;
+		std::condition_variable mCondVar;
+		std::queue<std::string> mQueue;
+		std::thread mThread;
+	};
+
+	Logger::Logger() : mExit(false) {
+		mThread = thread{ &Logger::processEntries, this};
+	}
+	Logger::~Logger(){
+		{
+			unique_lock<mutex> lock(mMutex);
+			mExit= true;
+			mCondVar.notify_all();
+		}
+		mThread.join();
+	}
+	void Logger::log(const std::string& entry){
+		unique_lock<mutex> lock(mMutex);
+		mQueue.push(entry);
+		mCondVar.notify_all();
+	}
+	void Logger::processEntries(){
+		ofstream ofs("log.txt");
+		if (ofs.fail()){
+			cerr << "fail to open" << endl;
+			return;
+		}
+		unique_lock<mutex> lock(mMutex);
+		while (true) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			if (!mExit) mCondVar.wait(lock);
+			lock.unlock();
+			while (true){
+				lock.lock();
+				if (mQueue.empty()){
+					break;
+				} else {
+					ofs << mQueue.front() << endl;
+					mQueue.pop();
+				}
+				lock.unlock();
+			}
+			if (mExit){
+				break;
+			}
+		}
+	}
+
+	void logMessage(int id, Logger& logger) {
+		for (int i=0; i < 10; ++i) {
+			stringstream ss;
+			ss << "log entry " << i << " from thread" << id;
+			logger.log(ss.str());
+		}
+	}
+
+	int main(){
+		Logger logger;
+		std::vector<thread> threads;
+		for (int i=0; i < 10; ++i) {
+			threads.emplace_back(logMessage, i, ref(logger));
+		}
+		for (auto& t : threads) {
+				t.join();
+		}
+		cout << "over";
+		return 0;
+	}
+
+### 线程池
+
+不动态创建和删除线程，程序预先创建好一定数量的线程，可用如Intel Threading Building Blocks(TBB),Microsoft Parallel Patterns(PPL)库等实现。
+
+## 线程总结
+
+终止程序前，使用join()等待后台线程执行完毕：确保后台线程都有时间进行清理(析构)，避免主线程终止时后台线程也终止
+最好没有同步：应当使线程使用共享数据时只能读取，没有写入，或者只写入其他线程不读取的部分
+使用单线程的所有权模式：同一时间拥有一个数据块的线程为1，阻止其他线程读写，处理完成后在交给其他线程
+使用原子类型和操作：能自动处理同步，不用处理死锁和竞争条件。
+使用锁保护可变的共享数据：不能使用原子类型时使用
+尽快释放锁
+确保按统一顺序获得多个锁：所有线程以同样顺序获得多个锁，可避免死锁
+使用支持多线程的分析器：分析性能瓶颈
+了解调试器的多线程支持特性：需要能得到程序中运行的线程列表，并查看线程的调用栈
+使用线程池：动态创建/销毁线程会导致性能下降
+使用高级多线程库：TBB，PPL
+
+
+# 软件开发过程
+
+## 生命周期模型
+
+分段模型(stagewise model):按步骤构建
+规划->设计->实现->单元测试->子系统测试->整合测试->评估
+缺点：实际无法完全分离
+
+瀑布模型（waterfall model）（从分段模型改进）：将以上分段模型的箭头改为双向<->
+优点：简洁，易于管理。规划是详尽列出所有不需的功能，后续可顺利进行
+缺点：不允许大步后退，不够动态。前期设计可能隐藏了巨大风险，导致发现时已晚，难以修正
+
+螺旋模型（spiral model，1988）：风险驱动
+基本思想：出错也没关系，下一轮修复。4个步骤迭代
+开发->分析->发现->评估->开发->分析->发现->评估->开发->分析->发现->评估
+开发：产生规划，包含产品的主要需求
+分析：得到战士用户体验的原型
+发现：构建一个呗认定是高风险的组件
+特点：重视在评估阶段中风险的评估和解决
+
+优点：解决了瀑布模型的隐藏风险问题与难以回溯的问题
+缺点：难以将每次迭代的范围界定的足够小，以获得真正的好处。且迭代次数过多就会退化为瀑布模型。
+多次迭代增加开销，不同周期协调困难（各团队开发周期不同步）
+
+rational unified process:是一个软件产品，而不仅是理论的过程模型
+
+- 过程本身和软件一样更新和完善
+- 提出开发框架及使用此框架的软件工具
+- 可部署在整个团队，要求所有成员使用相同的过程和工具
+- 可以定制，以满足用户的需求
+
+原则：开发周期每次迭代应有一个有形的成果，过程中，用户创建很多设计，需求文档报告和计划
+核心原则：定义精确模型，同一件欧美语言(UML)进行格式描述
+
+## 软件工程方法学
+[敏捷(agile methodology)](heep://agilemanifesto.org/):灵活地加入新需求
+Scrum：指导了敏捷的实现
+Scrum迭代周期称为sprint(为期2-4星期)，每个sprint周期结束，目标是有完全可用且经过测试的版本。并提供给客户，让其反馈
+
+### 角色
+PO(product owner):根据用户的描述编写多个高层次的用户需求，并设置其优先级，置入scum的产品需求总表。PO可以决定要留下/实现哪些
+SM(Scrum Master)负责过程运行，但不能是团队领导，联络各团队，确保团队正确遵循Scrum过程
+Group团队本身：团队最好不要多于10人
+
+### 过程：
+强制每日例会(需少于15分钟),每个成员回答：
+- 昨天到今天做了什么
+- 今天准备做什么
+- 要做这个会遇到哪些问题，SM需注意这些问题
+
+每个sprint周期前开会：
+决定需事先什么产品特性，记录在sprint需求总表中，直到此周期结束
+
+每个sprint周期后开会：
+确定已完成，未完成及原因，使用demo展示成果
+
+Billboard:To do, In progress, Done
+
+Scrum优点：弹性处理不可预知的问题
+缺点：
+- 成员从billboard自行挑选任务，而不是通过经理或团队管理者分配
+- SM对团队的信任非常重要，不能过紧
+- 特性蠕动(feature creep),新特性过多，必须制定最终日期
+
+### 极限编程(extreme programming, 1999)
+
+编写代码前编写自动化测试
+
+特点：
+最初粗略计划，然后随时计划
+2个月（而不是18个月）发布小版本，而不发布设计核心变化和大量发布说明文档的大版本。最终只有最重要的功能进入产品
+metaphor:所有尘缘对系统有共同的高层次看法（系统组件的心理模型），用隐喻推进共享的词汇表。
+简化设计：避免任意的通用性。修改等到以后
+不断测试，单元测试是一小块代码，确保独立的功能正常工作。测试足够完善，所有测试都能通过
+必要时重构：识别准备好重构的代码的迹象
+结对编程：2人同时编写，一人编写，一人(可能是已有开发软件专精者)思考高层次的方法（如测试，必要的重构和项目整体模型等）
+共享代码：集体都对代码有所认识
+不断整合：频繁地整合及测试
+正常工作的小时数：确保清醒的头脑
+客户在场：由于值构建当前必要的功能，客户可提供有价值的建议与沟通，并让开发者迅速开发成型
+共同的编码标准：不能有人明显不同的编码标准
+
+### 软件分流(software triage,2003)
+
+项目处于极其糟糕的状态：将剩下的功能组织为`必须有`,`应该有`,`可以有`的列表，以保证按时完成项目
+
+### 构建自己的过程和方法
+
+项目结束后进行评估，其中是否有重大问题。考虑什么方法行得通，什么行不通
+建立代码审查的技术，如只审查接口
+
+不要逃避问题
+
+# 高效的C++
+
+高效率：尽快完成指定任务，而非无用功
+
+提升效率：1. 按引用传递。2.设计层次的效率，如高效的算法，避免不需要的步骤
+
+普通程序（非计算密集型，非实时游戏，非系统级软件，非嵌入式系统），不用时间做优化
+
+语言的效率：语言的性能，编译器优化
+
+NOTE:应当仅优化分析器标记为性能瓶颈的部分
+
+### 高效地操纵对象
+- 按引用传递
+- 按引用返回（但不能返回局部对象的引用，此时使用移动语义）
+- 按引用捕捉异常
+- 使用移动语义
+- 避免创建临时的无名对象：代码需要在较大的表达式中将一个类型的变量转化为另一类型时，编译器都会构造临时对象。主要适用于函数调用，即传入的实参类型与形参(可能是一个类对象)不同，就会将实参强制转换。有事不可避免，但是要记得这个开销
+- 返回值优化：通过值返回对象的函数可能会创建一个临时对象，即调用此函数但不将其赋值给变量。通常编译器会优化它。仅在发布版本中启用。
+- 使用内联方法和函数，标记为inline，编译器也会自动优化部分
+
+### 设计层次的效率
+- 选择优秀的算法，数据结构（STL，Boost库），融入多线程
+- 尽可能多的缓存:
+  - 磁盘访问：避免多次打开读取同一文件。应尽量将内容保存在内存中
+  - 网络通信：当成文件访问，尽可能缓存静态信息
+  - 数学计算：复杂计算结果，尽量只执行一次计算并共享。不复杂，进行计算可能比从缓存中提取更快（使用分析器分析）。
+  - 对象分配：程序需要大量创建和使用短期对象，使用对象池
+  - 线程创建：将线程缓存在线程池中
+- 缓存失效：
+保存的数据往往是底层信息的一个副本，在缓存的生命周期中，原始数据可能发生变化（如获取缓存配置文件中的值，但配置文件被修改）。`缓存失效机制`，确保停止使用缓存的信息并读取新信息填入缓存。
+实现缓存失效：要求管理底层数据的实体通吃程序数据变化。通过程序在管理器中注册一个回调实现。程序可轮询某些出发自动重新填充缓存的时间。
+NOTE：维护缓存需要编码，内存，处理时间。可能会产生难以查找的bug，因此仅在分析器清晰地说明性能瓶颈的部分添加缓存。
+
+### 对象池
+
+大量同类型的短期对象，构造函数的开销很大。这些对象的内存分配和释放是瓶颈。
+对象池值创建一次对象，因此对象的构造函数只调用一次
+适用：构造函数需要为很多对象进行一些设置操作的情况。通过构造函数外的方法调用为对象设置一些实例特有的参数
+
+exp: 创建对象池
+    #include <cstddef>
+    #include <queue>
+    #include <stdexcept>
+    #include <memory>
+    
+    using namespace std;
+    
+    template <typename T>
+    class ObjectPool
+    {
+    public:
+        ObjectPool(size_t chunkSize = kDefaultChunkSize);
+        ObjectPool(const ObjectPool<T>& src) = delete;
+        ObjectPool<T>& operator=(const ObjectPool<T>& rhs) = delete;
+        using Object = std::shared_ptr<T>;
+        Object acquireObject();
+    
+    private:
+        std::queue<std::unique_ptr<T> > mFreeList;
+        size_t mChunkSize;
+        static const size_t kDefaultChunkSize = 10;
+        void allocateChunk();
+    };
+    
+    template <typename T>
+    ObjectPool<T>::ObjectPool(size_t chunkSize)
+    {
+        if (chunkSize <= 0) {
+            throw std::invalid_argument("chunk size must be positive");
+        }
+        mChunkSize = chunkSize;
+        allocateChunk();
+    }
+    template <typename T>
+    void ObjectPool<T>::allocateChunk()
+    {
+        for (size_t i = 0; i < mChunkSize; ++i) {
+            // create pointer
+            mFreeList.emplace(std::make_unique<T>());
+        }
+    }
+    template <typename T>
+    // typename ObjectPool<T>::Object declares that Object is a type
+    typename ObjectPool<T>::Object ObjectPool<T>::acquireObject()
+    {
+        if (mFreeList.empty()) {
+            allocateChunk();
+        }
+        // create pointer named obj from freelist
+        std::unique_ptr<T> obj(std::move(mFreeList.front()));
+        mFreeList.pop();
+        // now in namespace ObjectPool<T>::,use Object directely
+        Object smartObject(obj.release(),
+                           [this](T* t) {
+                               mFreeList.push(std::unique_ptr<T>(t));
+                           }
+        );
+        return smartObject;
+    }
+    
+    class UserRequest{
+    public:
+        UserRequest() {}
+        virtual ~UserRequest() {}
+    private:
+        // not shown
+    };
+    
+    ObjectPool<UserRequest>::Object obtainUserRequest(ObjectPool<UserRequest>& pool){
+        auto request = pool.acquireObject();
+        return request;
+    }
+    void processUserRequest(ObjectPool<UserRequest>::Object& req)
+    {
+        req.reset();
+    }
+    
+    int main()
+    {
+        ObjectPool<UserRequest> requestPool(10);
+        for (size_t i = 0; i < 100; ++i) {
+            auto req = obtainUserRequest(requestPool);
+            processUserRequest(req);
+        }
+        return 0;
+    }
+       
+
+
+
+### 90/10法则
+> 大部分程序90%的时间执行10%的代码，优化90%的代码，程序运行只改进10%。需要优化在典型负载下程序运行最多的代码
+
+### 性能剖析器
+fee
+rational purifyplus(from IBM)
+free
+on windows:very sleepy,luke stackwalker,vc++
+on linux: valgrind,gprof
+
+exp: a database
+
+    // NamBD.h
+    #include <string>
+	#include <vector>
+	#include <utility>
+
+	class NameDB{
+	public:
+		NameDB(const std::string& nameFile);
+		int getNameRank(const std::string& name) const;
+		int getAbsoluteNumber(const std::string& name) const;
+	private:
+		std::vector<std::pair<std::string,int> >mNames;
+		bool nameExists(const std::string& name) const;
+		void incrementNameCount(const std::string& name);
+		void addNewName(const std::string& name);
+	};
+
+	#include <iostream>
+	#include <fstream>
+	using namespace std;
+
+	NameDB::NameDB(const string& nameFile)
+	{
+		ifstream inFile(nameFile.c_str());
+		if (!inFile) {
+			throw invalid_argument("Unable to open file");
+		}
+		string name;
+		while (inFile >> name) {
+			if (nameExists(name)) {
+				incrementNameCount(name);
+			} else {
+				addNewName(name);
+			}
+		}
+		inFile.close();
+	}
+
+	int NameDB::getNameRank(const std::string& name) const
+	{
+		int num = getAbsoluteNumber(name);
+		if (num == -1) {
+			return -1;
+		}
+		int rank = 1;
+		for (auto& entry : mNames) {
+			if (entry.second > num) {
+				rank++;
+			}
+		}
+		return rank;
+	}
+
+	int NameDB::getAbsoluteNumber(const std::string& name) const
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				return entry.second;
+			}
+		}
+		return -1;
+	}
+
+
+	// private
+	bool NameDB::nameExists(const std::string& name) const
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				return true;
+			}
+		}
+		return false;
+	}
+	void NameDB::incrementNameCount(const std::string& name)
+	{
+		for (auto& entry : mNames) {
+			if (entry.first == name) {
+				entry.second++;
+				return;
+			}
+		}
+	}
+	void NameDB::addNewName(const std::string& name)
+	{
+		mNames.push_back(make_pair(name, 1));
+	}
+
+
+    NameDBtest.h
+    #include "NameDB.h"
+    #include <iostream>
+	int main()
+	{
+		NameDB boys("boys_long.txt");
+		cout << boys.getNameRank("Daniel") << endl;
+		cout << boys.getAbsoluteNumber("Jacob") << endl;
+		cout << boys.getNameRank("William") << endl;
+		return 0;
+	}
+
+use gprof:
+
+1. gcc -lstdc++ -std=c++11 -pg -o NameDB.cpp NameDBtest.cpp
+1. 运行程序，生成gmon.out
+1. gprof namedb gmon.out > gprof_analysis.out  // 输出重定向到文件
+
+exp: after improvement
+
+    #include <string>
+	#include <map>
+
+	class NameDB{
+	public:
+		NameDB(const std::string& nameFile);
+		int getNameRank(const std::string& name) const;
+		int getAbsoluteNumber(const std::string& name) const;
+	private:
+		std::map<std::string, int> mNames;
+		bool nameExistsAndIncrement(const std::string& name);
+		void addNewName(const std::string& name);
+	};
+
+	#include <iostream>
+	#include <fstream>
+	using namespace std;
+
+	NameDB::NameDB(const string& nameFile)
+	{
+		ifstream inFile(nameFile.c_str());
+		if (!inFile) {
+			throw invalid_argument("Unable to open file");
+		}
+		string name;
+		while (inFile >> name) {
+			if (!nameExistsAndIncrement(name)) {
+				addNewName(name);
+			}
+		}
+		inFile.close();
+	}
+
+	int NameDB::getNameRank(const std::string& name) const
+	{
+		int num = getAbsoluteNumber(name);
+		if (num == -1) {
+			return -1;
+		}
+		int rank = 1;
+		for (auto& entry : mNames) {
+			if (entry.second > num) {
+				rank++;
+			}
+		}
+		return rank;
+	}
+
+	int NameDB::getAbsoluteNumber(const std::string& name) const
+	{
+		auto res = mNames.find(name);
+		if (res != end(mNames)) {
+			return res->second;
+		}
+		return -1;
+	}
+
+	// private
+	bool NameDB::nameExistsAndIncrement(const std::string& name)
+	{
+		auto res = mNames.find(name);
+		if (res != end(mNames)) {
+			res->second++;
+			return true;
+		}
+		return false;
+	}
+
+	void NameDB::addNewName(const std::string& name)
+	{
+		mNames[name] = 1;
+	}
+
+
+	int main()
+	{
+		NameDB boys("boys_long.txt");
+		cout << boys.getNameRank("Daniel") << endl;
+		cout << boys.getAbsoluteNumber("Jacob") << endl;
+		cout << boys.getNameRank("William") << endl;
+		return 0;
+	}
+
+exp: more improvement
+
+// delete nameExistsAndIncrement and addNewname methods.
+
+while(inFile >> name) {
+    auto res = mNames.insert(make_pair(name,1));
+    if (res.second == false) {
+        res.first->second++;
+    }
+}
+
+## 调试
+
+1.调试基本定律
+要为bug的出现制定好规划
+
+2.bug分类学
+灾难性bug
+非灾难性bug
+cosmetic bug(图形界面显示错误但造作无问题)
+
+3.避免bug
+指针和内存管理
+编码前设计
+(请他人)代码审查
+全面测试，再请他人测试
+编写自动测试。所有已实现的特性编写单元测试
+预计错误条件并处理：规划和处理内存不足的情况
+使用智能指针
+配置编译器，用较高的警告级别编译
+使用静态的代码分析器分析源代码
+提高可读性，添加代码注释，使用override关键字
+
+### logging
+syslog(form unix),Boost.Log
+
+应当记录的错误
+1.不可恢复的错误，如无法分配内存或系统调用失败
+2.管理员可采取行动的错误，如内存不足，数据文件格式有误，不能写入磁盘或网络连接关闭
+3.意外的错误，没有预计到的代码路径或变量取了意料外的值（如用户输入非法数据时）
+4.潜在的安全漏洞，例如网络连接试图访问未经授权的地址，或太多的网络连接尝试（拒绝服务）
+
+调试跟踪(trace)的辅助有效信息
+线程ID（多线程）
+生成跟踪信息的函数名
+生成跟踪信息的代码所在的源文件名称
+
+1.调试模式
+启动时调试模式：添加命令行参数，但需要重新启动
+
+exp: log debug
+
+    #include <iostream>
+    #include <cstring>
+    #include <fstream>
+    using namespace std;
+
+    class Logger
+    {
+    // create logger
+    public:
+        static void enableLogging(bool enable) {mLoggingEnabled = enable;}
+        static bool isLoggingEnabled(){ return mLoggingEnabled;}
+        template<typename... Args>
+        static void log(const Args&... args) {
+            if (!mLoggingEnabled)
+                return;
+            ofstream ofs(mDebugFileName, ios_base::app);
+            if (ofs.fail()) {
+                cerr << "unable to open" << endl;
+                return;
+            }
+            logHelper(ofs, args...);
+            ofs << endl;
+        }        
+
+    private:
+        template<typename T1>
+        static void logHelper(ofstream& ofs, const T1& t1) {
+            ofs << t1;
+        }
+        template<typename T1,typename... Args>
+        static void logHelper(ofstream& ofs, const T1& t1, const Args&... args) {
+            ofs << t1;
+            logHelper(ofs, args...);
+        }
+        static bool mLoggingEnabled;
+        static const char* mDebugFileName;
+    };
+    bool Logger::mLoggingEnabled = false;
+    const char* Logger::mDebugFileName = "debugfile.out";
+
+    #define log(...) Logger::log(__func__, "(): ", __VA_ARGS__)
+    // __VA_ARGS__代表了...
+    // log("giv arg", *obj);替换为Logger::log(__func__,"(): ", "giv arg", *obj)
+
+    bool isDebugSet(int argc, char* argv[])
+    {
+        for (int i = 0; i < argc; ++i) {
+            if (strcmp(argv[i], "-d") == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    class ComplicatedClass
+    {
+    public:
+        ComplicatedClass(){}
+    };
+    ostream& operator<<(ostream& ostr, const ComplicatedClass& src) {
+        ostr << "ComplicatedClass";
+        return ostr;
+    }
+    class UserCommand
+    {
+    public:
+        UserCommand(){}
+    };
+    ostream& operator<<(ostream& ostr, const UserCommand& src) {
+        ostr << "UserCommand";
+        return ostr;
+    }
+    int counter{ 0 };
+    UserCommand getNextCommand(ComplicatedClass* obj)
+    {
+        UserCommand cmd;
+        return cmd;
+    }
+    void processUserCommand(UserCommand& cmd) {
+        cout << cmd << counter++ << endl;
+    }
+    void trickyFunction(ComplicatedClass* obj)
+    {
+        log("given arg ", *obj);
+        for (size_t i=0; i<100; ++i) {
+            UserCommand cmd = getNextCommand(obj);
+            log("retrieved cmd ", i, ": ", cmd);
+            try {
+                processUserCommand(cmd);
+            } catch(const exception& e) {
+                log("received exception form processUserCommand(): ",e.what());
+            }
+        }
+    }
+
+    int main(int argc, char* argv[])
+    {
+        Logger::enableLogging(isDebugSet(argc, argv));
+        if (Logger::isLoggingEnabled()) {
+            for (int i=0; i< argc; ++i) {
+                log(argv[i]);
+            }
+        }
+        ComplicatedClass obj;
+        trickyFunction(&obj);
+        return 0;
+    }
+    // 运行方式 on windows(.exe可省略)
+    // > start STDebug.exe
+    // > start STDebug.exe -d
+
+2.编译时调试
+预处理指令DEBUG_MODE,#ifdef.编译时定义符号DEBUG_MODE。GCC通过命令行指定-Dsymbol,VC++命令行指定/D symbol
+- 优点：调试代码不编译到二进制文件
+- 缺点： 发现bug，无法再客户现场调试
+
+3.运行时调试
+提供动态控制调试模式的异步接口，如命令菜单。可用于对程序进行跨进程条用（如套接字，远程过程调用）
+
+环形缓冲区
+> 启动调试可能为时已晚，应启用跟踪(trace),获取最近的跟踪信息，保存在内存中，在需要时存储到错误或日志文件。
+
+常见方法时使用环形缓冲区保存固定数目的短消息，或在固定大小的内存保存消息，缓冲区填满，重新在开头写消息并覆盖就消息。
+
+exp: ring buffer
+
+    #include <iostream>
+    #include <vector>
+    #include <sstream>
+    #include <fstream>
+    #include <iterator>
+    using namespace std;
+
+    class RingBuffer{
+    public:
+        RingBuffer(size_t numEntries = kDefaultNumEntries,
+            std::ostream* ostr = nullptr);
+        virtual ~RingBuffer();
+        template<typename... Args>
+        void addEntry(const Args&... args)
+        {
+            std::ostringstream ostr;
+            // input to ostingstream
+            addEntryHelper(ostr, args...);
+            // now ostringstream is not empty and save it as string in vector
+            addStringEntry(ostr.str());
+        }
+        friend std::ostream& operator<<(std::ostream& ostr, RingBuffer& rb);
+        friend std::ofstream& operator<<(std::ofstream& ostr, RingBuffer& rb);
+        std::ostream* setOutput(std::ostream* newOstr);
+    private:
+        std::vector<std::string> mEntries;
+        std::vector<std::string>::iterator mNext;
+        std::ostream* mOstr;
+        bool mWrapped;
+        static const size_t kDefaultNumEntries = 20;
+        template<typename T1>
+        void addEntryHelper(std::ostringstream& ostr, const T1& t1) {
+            ostr << t1;
+        }
+        template<typename T1, typename... Tn>
+        void addEntryHelper(std::ostringstream& ostr, const T1& t1, const Tn&... args) {
+            ostr << t1;
+            addEntryHelper(ostr, args...);
+        }
+        // 使用&&保存临时字面量
+        void addStringEntry(std::string&& entry);
+    };
+
+    RingBuffer::RingBuffer(size_t numEntries, ostream* ostr):mEntries(numEntries),
+    mNext(begin(mEntries)),mOstr(ostr),mWrapped(false)
+    {
+    }
+    RingBuffer::~RingBuffer(){}
+
+    ostream& operator<<(std::ostream& ostr, RingBuffer& rb)
+    {
+        if (rb.mWrapped){
+            copy(rb.mNext,end(rb.mEntries),ostream_iterator<string>(ostr, "\n"));
+        }
+        copy(begin(rb.mEntries), rb.mNext, ostream_iterator<string>(ostr, "\n"));
+        return ostr;
+    }
+    ofstream& operator<<(std::ofstream& ostr, RingBuffer& rb)
+    {
+        for (auto& e : rb.mEntries){
+            ostr << e;
+        }
+        return ostr;
+    }
+    std::ostream* RingBuffer::setOutput(std::ostream* newOstr)
+    {
+        // return old os, and set new os
+        ostream* ret = mOstr;
+        mOstr = newOstr;
+        return ret;
+    }
+    void RingBuffer::addStringEntry(std::string&& entry)
+    {
+        if(mOstr){
+            *mOstr << entry <<endl;
+        }
+        *mNext = std::move(entry);
+        ++mNext;
+        if (mNext == end(mEntries)) {
+            mNext = begin(mEntries);
+            mWrapped = true;
+        }
+    }
+
+    class ComplicatedClass
+    {
+    public:
+        ComplicatedClass(){}
+    };
+    ostream& operator<<(ostream& ostr, const ComplicatedClass& src) {
+        ostr << "ComplicatedClass";
+        return ostr;
+    }
+    class UserCommand
+    {
+    public:
+        UserCommand(){}
+    };
+    ostream& operator<<(ostream& ostr, const UserCommand& src) {
+        ostr << "UserCommand";
+        return ostr;
+    }
+    int counter{ 0 };
+    UserCommand getNextCommand(ComplicatedClass* obj)
+    {
+        UserCommand cmd;
+        return cmd;
+    }
+    void processUserCommand(UserCommand& cmd, int i) {
+        // cout << cmd << counter++ << endl;
+        cout << i;
+        if (i == 5) {throw invalid_argument("Unable to open file");}
+    }
+
+    RingBuffer debugBuf;
+    // #define addEntry(...) RingBuffer::addEntry(__func__, "(): ", __VA_ARGS__)
+    void trickyFunction(ComplicatedClass* obj)
+    {
+        debugBuf.addEntry(__func__, "():given arg: ", *obj);
+        for (size_t i=0; i<100; ++i) {
+            UserCommand cmd = getNextCommand(obj);
+            debugBuf.addEntry(__func__, "():retrieved cmd ", i, ": ", cmd);
+            try {
+                // main process runs here, if got any fault,don't 
+                processUserCommand(cmd, i);
+            } catch(const exception& e) {
+                debugBuf.addEntry(__func__, "():received exception form processUserCommand(): ",e.what());
+
+                ofstream ofs("trace.out", ios_base::app);
+                if (ofs.fail()){
+                    cerr << "unable to open" << endl;
+                    return;
+                }
+                ofs << debugBuf;
+                return;
+            }
+        }
+    }
+
+
+    int main(int argc, char* argv[])
+    {
+        for (int i=0; i < argc; ++i) {
+            debugBuf.addEntry(argv[i]);
+        }
+        ComplicatedClass obj;
+        trickyFunction(&obj);
+
+        cout << debugBuf;
+        return 0;
+    }
+    // 运行方式 on windows(.exe可省略)
+    // > start STDebug.exe
+    // > start STDebug.exe -d
+
+### （运行时求值）断言
+> <cassert>头文件，定义了assert宏。接受bool表达式，迫使程序在bug来源的确切点公开bug。
+
+NOTE：assert宏行为取决于NDEBUG预处理符号，无此符号则断言。因此常在编译发布版本时定义此符号
+
+静态断言：
+static_assert：编译时对断言求值，参数为求值的表达式和字符串
+static_assert(INT_MAX >= 0xFFF,
+"code requires INT_MAX to be at least 0xFFF");
+用法：通常与类型trait结合。
+
+崩溃转储（内存转储，核心转储），先建立符号服务器：用于存储软件发布二进制版本的调试符号，用以解释来自客户的崩溃转储。创建源代码服务器，存储源代码的所有修订。调试崩溃转储时，源代码服务器下载正确的源代码，以修订创建崩溃转储的软件。其价值高于1000个bug报告
+
+### 调试技术
+1.重现bug，重现每一步操作，运行自动化测试，运行压力测试，并发测试
+2.调试可重复bug
+  - 记录调试消息，仅启用日志（会略微改变程序计时），bug可能消失。
+  - 使用调试器单步跟踪
+3.调试不可重现bug
+  - 尝试重现bug
+  - 分析错误日志
+  - 获取和分析跟踪（如环形缓冲区）
+  - 检查内存转储文件（核心文件），平台提供分析这些内存转储文件的工具
+  - 检查代码
+  - 使用内存观察工具
+  - 提交或更新bug报告（还未完全解决）
+  - 找到根源后，创建可重现的测试用例（修复bug前），可重现，也可用于尝试修复bug后测试
+
+4.调试退化
+  - 查看日志中特性能工作的时间，查看该时间以后的所有改变日志。
+  - 对旧版本二进制文件进行二叉树搜索bug
+
+5.调试内存问题
+
+内存释放错误：
+  - 内存泄漏
+  - 使用不匹配的分配和释放
+  - 多次释放
+  - 释放未分配的内存：通常导致程序崩溃（delete a not valid pointer）
+  - 释放堆栈内存：技术上属于释放未分配的内存的特殊情况
+
+内存访问（读写）错误：通常导致微妙的错误结果，但程序通常能运行
+
+访问无效内存：几乎总导致程序立刻崩溃
+再次访问已释放的内存：通常不崩溃，但被另行分配，可能产生奇怪的值
+访问不同分配中的内存（超过index）：不崩溃，但有潜在危险
+读取未初始化的内存：读取未初始化的值
+
+调试内存错误（purify,valgrind,application verifier）
+内存相关bug每次出现在略微不同的位置，表明堆内存损坏.
+原理：调试工具是运行时验证，插入自己的内存分配和释放例程，检查动态内存相关的误用
+通常查看裸指针的用法
+
+- 类错误
+  - 验证带有动态分配内存的类的析构函数是否准确释放了内存
+  - 确保类能通过复制构造函数和赋值运算符正确处理复制赋值。确保移动构造函数和移动赋值运算符把原对象中的指针正确设置为nullptr,这样其析构函数不释放盖内存
+  - 检查可疑的类型转换，使用dynamic_cast
+- 一般内存错误
+  - 确保每个new的调用都匹配了一个delete调用
+  - 检查缓冲区溢出（C风格字符串）
+  - 检查无效指针的解引用
+  - 堆上声明指正，确保总是在声明时初始化
+  - 确保总是在类的构造函数初始化指针数据成员（赋值或nullptr）
+
+## 调试多线程（存在时序问题）
+- 使用调试器：问题如死锁。将阻塞信息与追踪日志比较
+- 使用基于消息的调试：在程序临界区之前之后，以及获得锁前，释放锁后添加调试语句（但可能改变时序，隐藏bug）
+- 插入前置休眠和上下文切换：是线程睡眠特定时间，强制执行特定的调度行为。<thread>的std::this_thread命名空间中定义了sleep_until(),sleep_for().确保其在释放锁前或堆某个变量条件发出信号前，访问共享数据前休眠几秒。看出竞争条件
+- 核查代码：核查线程同步代码，记下哪些是一定无害的
+
 
 mark pg.665
 
